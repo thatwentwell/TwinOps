@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CD Pilar: gemelo operativo (prototipo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DCE1E4; --surface:#F7F8F9; --surface-2:#ECEFF1; --ink:#1D2A33; --muted:#5B6870; --line:#CDD3D8;
+  --ok:#21946F; --warn:#D99A00; --crit:#D2453A; --future:#6A4FE0; --future-wash:rgba(106,79,224,.13);
+  --scene-bg:#D3D9DD; --ground:#C7D1C6; --road:#8E989F; --apron:#B9C0C5; --slab:#EEF0F1; --wall:#AEB8BF; --zone:#E4E8EA;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151C21; --surface:#1D262D; --surface-2:#253038; --ink:#E3E9ED; --muted:#93A1AA; --line:#34424C;
+    --ok:#3CC193; --warn:#F2B530; --crit:#F0675B; --future:#9C89FF; --future-wash:rgba(156,137,255,.15);
+    --scene-bg:#10171C; --ground:#1D2923; --road:#3A454D; --apron:#2C363D; --slab:#2B353C; --wall:#46545E; --zone:#323E46;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151C21; --surface:#1D262D; --surface-2:#253038; --ink:#E3E9ED; --muted:#93A1AA; --line:#34424C;
+  --ok:#3CC193; --warn:#F2B530; --crit:#F0675B; --future:#9C89FF; --future-wash:rgba(156,137,255,.15);
+  --scene-bg:#10171C; --ground:#1D2923; --road:#3A454D; --apron:#2C363D; --slab:#2B353C; --wall:#46545E; --zone:#323E46;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--future);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 372px;grid-template-rows:auto minmax(0,1fr) auto}
+
+.top{grid-column:1;grid-row:1;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand h1{margin:0;font:700 23px/1.1 'Barlow Semi Condensed','Barlow',sans-serif;letter-spacing:.005em}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13.5px;max-width:62ch}
+.controls{display:flex;align-items:center;gap:18px}
+.clock{display:flex;flex-direction:column;align-items:flex-end}
+.clock-label{font-size:12px;color:var(--muted)}
+.clock-time{font:600 25px/1 'Barlow Semi Condensed',sans-serif;font-variant-numeric:tabular-nums}
+.speed{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.speed button{appearance:none;border:0;background:transparent;padding:7px 11px;cursor:pointer;border-right:1px solid var(--line);font-weight:500;font-variant-numeric:tabular-nums}
+.speed button:last-child{border-right:0}
+.speed button.on{background:var(--ink);color:var(--surface)}
+
+.stage{grid-column:1;grid-row:2;position:relative;overflow:hidden;background:var(--scene-bg);touch-action:none;user-select:none;-webkit-user-select:none}
+#c{display:block;width:100%;height:100%}
+.stage::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s;box-shadow:inset 0 0 0 3px var(--future);background:radial-gradient(ellipse at center,transparent 50%,var(--future-wash))}
+.predicting .stage::after{opacity:1}
+.labels{position:absolute;inset:0;pointer-events:none}
+.zlabel{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13.5px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 3px rgba(15,25,35,.14);appearance:none}
+.zlabel .v{font:500 13.5px 'Barlow Semi Condensed',sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+.zlabel.compact .v{display:none}
+.zlabel.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.predicting .zlabel .v{color:var(--future)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}
+.dot.warn{background:var(--warn)}
+.dot.crit{background:var(--crit)}
+.future-banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:var(--future);color:#fff;font-weight:600;font-size:14px;padding:7px 15px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 8px rgba(40,20,120,.25)}
+.nav-hint{position:absolute;left:14px;bottom:12px;font-size:12.5px;color:var(--muted);background:var(--surface);opacity:.92;padding:5px 9px;border-radius:6px;pointer-events:none}
+.overview-btn{position:absolute;right:14px;top:14px;appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600}
+
+.timeline{grid-column:1;grid-row:3;display:flex;align-items:center;gap:22px;padding:12px 20px 14px;background:var(--surface);border-top:1px solid var(--line)}
+.tl-text{width:240px;flex:none;display:flex;flex-direction:column}
+.tl-text strong{font-size:16px;font-weight:600}
+.tl-text span{font-size:13px;color:var(--muted)}
+.predicting .tl-text strong{color:var(--future)}
+.tl-track{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tl-track input{width:100%;accent-color:var(--future);margin:0;height:24px;cursor:pointer}
+.tl-ticks{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ghost{appearance:none;border:1px solid var(--line);background:transparent;border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:500}
+.ghost:disabled{opacity:.45;cursor:default}
+
+aside{grid-column:2;grid-row:1/4;background:var(--surface);border-left:1px solid var(--line);overflow-y:auto;padding:20px 22px 32px}
+aside h2{margin:0;font:700 27px/1.1 'Barlow Semi Condensed',sans-serif}
+aside h3{margin:26px 0 8px;font-size:15.5px;font-weight:600}
+aside .sub{margin:5px 0 16px;color:var(--muted)}
+aside .hint{margin:-2px 0 10px;color:var(--muted);font-size:14px}
+.back{appearance:none;border:0;background:none;padding:0;margin:0 0 12px;color:var(--muted);cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:3px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.kpi{padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.kpi:nth-child(odd){padding-right:12px;border-right:1px solid var(--line)}
+.kpi:nth-child(even){padding-left:14px}
+.kpi .n{font:600 29px/1 'Barlow Semi Condensed',sans-serif;font-variant-numeric:tabular-nums}
+.kpi .n small{font-size:15px;font-weight:500;color:var(--muted);margin-left:3px}
+.kpi .l{font-size:13px;color:var(--muted);margin-top:5px}
+.pred .kpi .n{color:var(--future)}
+.flow{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.flow button,.alerts button{appearance:none;width:100%;display:grid;grid-template-columns:22px 1fr auto 12px;align-items:center;gap:8px;padding:10px 2px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left}
+.flow button:hover,.alerts button:hover{background:var(--surface-2)}
+.flow .num{font:600 14px 'Barlow Semi Condensed',sans-serif;color:var(--muted)}
+.flow .nm{font-weight:600}
+.flow .val{font:500 14.5px 'Barlow Semi Condensed',sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+.pred .flow .val{color:var(--future)}
+.alerts{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.alerts button{grid-template-columns:12px 1fr auto}
+.alerts .when{font:500 14px 'Barlow Semi Condensed',sans-serif;color:var(--future);font-variant-numeric:tabular-nums}
+.alerts .empty{padding:10px 2px;color:var(--muted);border-bottom:1px solid var(--line)}
+.incidents{display:flex;flex-direction:column;gap:8px}
+.inc-btn{appearance:none;text-align:left;border:1px dashed var(--muted);background:transparent;border-radius:7px;padding:9px 12px;cursor:pointer;font-weight:500}
+.inc-btn:hover{border-style:solid;background:var(--surface-2)}
+.inc-on{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:7px;background:var(--surface-2);border-left:3px solid var(--crit)}
+.inc-on b{font-weight:600;display:block}
+.inc-on span{font-size:13px;color:var(--muted)}
+.health{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);margin-bottom:16px}
+.badge{flex:none;font-weight:600;font-size:13px;padding:3px 9px;border-radius:5px;color:#fff;background:var(--ok)}
+.badge.warn{background:var(--warn);color:#1d1a10}
+.badge.crit{background:var(--crit)}
+.pred .badge{box-shadow:0 0 0 2px var(--future)}
+.chart-cap{font-size:13.5px;font-weight:600;margin-bottom:4px}
+.chart svg{display:block;width:100%;height:auto}
+.c-past{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.c-fut{fill:none;stroke:var(--future);stroke-width:2;stroke-dasharray:5 4;stroke-linejoin:round}
+.c-now{stroke:var(--muted);stroke-width:1}
+.c-ax{fill:var(--muted);font:500 11px 'Barlow',sans-serif}
+.c-warn{fill:var(--warn);opacity:.13}
+.c-crit{fill:var(--crit);opacity:.13}
+.c-pt{fill:var(--future)}
+.insight{margin:10px 0 18px;font-size:14.5px}
+.pred .insight,.insight.fut{color:var(--future)}
+
+@media (max-width:860px){
+  .app{height:auto;min-height:100%;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 58vh auto auto}
+  aside{grid-column:1;grid-row:4;border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .top{flex-wrap:wrap}
+  .brand p,.nav-hint,.clock-label{display:none}
+  .timeline{flex-wrap:wrap;gap:10px 16px}
+  .tl-text{width:auto;flex:1}
+  .tl-track{order:3;flex-basis:100%}
+}
+@media (prefers-reduced-motion:reduce){.stage::after{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>CD Pilar</h1>
+      <p>Gemelo operativo del centro de distribución y el reparto en zona norte. Prototipo con datos simulados.</p>
+    </div>
+    <div class="controls">
+      <div class="clock"><span class="clock-label">Hora de la operación</span><span class="clock-time" id="clock">10:20</span></div>
+      <div class="speed" role="group" aria-label="Velocidad de la simulación">
+        <button id="pause">Pausar</button>
+        <button data-speed="1" class="on" aria-pressed="true">1×</button>
+        <button data-speed="5" aria-pressed="false">5×</button>
+        <button data-speed="20" aria-pressed="false">20×</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="c" role="img" aria-label="Modelo 3D isométrico del centro de distribución y la zona de reparto"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="future-banner" id="banner" hidden></div>
+    <div class="nav-hint">Arrastrá para moverte, usá la rueda o pellizcá para hacer zoom y tocá una etapa para entrar.</div>
+    <button class="overview-btn" id="overviewBtn" hidden>Vista general</button>
+  </main>
+
+  <section class="timeline" aria-label="Línea de tiempo">
+    <div class="tl-text"><strong id="tlTitle">Ahora</strong><span id="tlSub">Estado en vivo de la operación</span></div>
+    <div class="tl-track">
+      <input type="range" id="horizon" min="0" max="120" step="5" value="0" aria-label="Mirar hacia adelante, en minutos">
+      <div class="tl-ticks" aria-hidden="true"><span>Ahora</span><span>+30 min</span><span>+1 h</span><span>+90 min</span><span>+2 h</span></div>
+    </div>
+    <button id="tlNow" class="ghost" disabled>Volver a ahora</button>
+  </section>
+
+  <aside id="panel"></aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ===SIM START===
+// Motor de simulación: no sabe nada de 3D. Cada step() avanza un minuto.
+const SLOTS=360, IN_DOORS=3, TRUCK_EVERY=28, TRUCK_PALLETS=20, UNLOAD_MIN=35;
+const PICKERS=15, PICK_RATE=0.36, PACKERS=6, PACK_RATE=1.0, PALLET_PER_ORDER=0.15;
+const FLEET=18, VAN_CAP=48, LOAD_MIN=10, DELIVERY_MIN=2.0, RETURN_MIN=18, OUT_DOORS=4, SLA_MIN=165;
+const INCIDENTS={
+  picking:{label:'Falla en la cinta de picking',stage:'picking',factor:0.45,dur:60},
+  packing:{label:'Ausentismo en empaque',stage:'packing',factor:0.5,dur:90},
+  trucks:{label:'Llegan 5 camiones juntos',stage:'inbound',dur:0},
+  traffic:{label:'Corte de tránsito en Panamericana',stage:'lastmile',factor:2.5,dur:120}
+};
+function orderRate(t){const h=(t%1440)/60;return 3.2+4.4*Math.exp(-(((h-11)/1.5)**2))+3.2*Math.exp(-(((h-17.5)/1.7)**2));}
+function qTotal(q){let s=0;for(const c of q)s+=c.n;return s;}
+function sumN(cs){let s=0;for(const c of cs)s+=c.n;return s;}
+function qTake(q,amt){const out=[];let need=amt;while(need>1e-9&&q.length){const c=q[0];const k=Math.min(c.n,need);out.push({n:k,born:c.born});c.n-=k;need-=k;if(c.n<=1e-9)q.shift();}return out;}
+function qPush(q,cs){for(const c of cs){if(c.n<=1e-9)continue;const last=q[q.length-1];if(last&&last.born===c.born)last.n+=c.n;else q.push({n:c.n,born:c.born});}}
+function factor(s,kind){let f=1;for(const i of s.inc)if(i.kind===kind&&s.t<i.until)f*=INCIDENTS[kind].factor;return f;}
+
+function initState(t0){
+  return{t:t0,trucksQueue:0,nextTruck:6,
+    doors:Array.from({length:IN_DOORS},()=>({busy:false,left:0})),
+    stock:230,pick:[],pack:[],disp:[],
+    vans:Array.from({length:FLEET},(_,i)=>({id:i,phase:'idle',left:0,load:[],total:0,done:0,next:0,route:i%6,door:-1,retTotal:RETURN_MIN})),
+    deliv:[],inc:[],palletsToday:0,deliveredToday:0,lateToday:0,
+    pickedLast:0,pickCap:PICKERS*PICK_RATE,packedLast:0,packCap:PACKERS*PACK_RATE,otd:100};
+}
+
+function step(s){
+  s.t+=1;const t=s.t;
+  s.inc=s.inc.filter(i=>t<i.until);
+  // Recepción
+  s.nextTruck-=1;
+  if(s.nextTruck<=0){s.trucksQueue+=1;s.nextTruck=TRUCK_EVERY;}
+  for(const d of s.doors){
+    if(d.busy){d.left-=1;if(d.left<=0){d.busy=false;s.stock=Math.min(SLOTS,s.stock+TRUCK_PALLETS);s.palletsToday+=TRUCK_PALLETS;}}
+    if(!d.busy&&s.trucksQueue>0&&s.stock<=SLOTS-TRUCK_PALLETS){d.busy=true;d.left=UNLOAD_MIN;s.trucksQueue-=1;}
+  }
+  // Órdenes nuevas
+  qPush(s.pick,[{n:orderRate(t),born:t}]);
+  // Picking
+  const stockF=s.stock<12?0.3:1;
+  s.pickCap=PICKERS*PICK_RATE*factor(s,'picking')*stockF;
+  const picked=qTake(s.pick,s.pickCap);s.pickedLast=sumN(picked);
+  s.stock=Math.max(0,s.stock-s.pickedLast*PALLET_PER_ORDER);
+  qPush(s.pack,picked);
+  // Empaque
+  s.packCap=PACKERS*PACK_RATE*factor(s,'packing');
+  const packed=qTake(s.pack,s.packCap);s.packedLast=sumN(packed);
+  qPush(s.disp,packed);
+  // Flota
+  const traffic=factor(s,'traffic');
+  for(const v of s.vans){
+    if(v.phase==='loading'){v.left-=1;if(v.left<=0){v.phase='route';v.done=0;v.next=DELIVERY_MIN*traffic;v.door=-1;}}
+    else if(v.phase==='route'){
+      v.next-=1;
+      while(v.next<=0&&v.load.length){
+        const c=qTake(v.load,1);const n=sumN(c);const late=(t-c[0].born)>SLA_MIN;
+        s.deliv.push({t,n,late});s.deliveredToday+=n;if(late)s.lateToday+=n;
+        v.done+=n;v.lastLate=late;v.next+=DELIVERY_MIN*traffic;
+      }
+      if(!v.load.length){v.phase='return';v.left=RETURN_MIN*traffic;v.retTotal=v.left;}
+    }
+    else if(v.phase==='return'){v.left-=1;if(v.left<=0)v.phase='idle';}
+  }
+  // Despacho: cargar vehículos cuando hay volumen o una orden esperó demasiado
+  let loading=s.vans.filter(v=>v.phase==='loading').length;
+  let q=qTotal(s.disp);
+  while(loading<OUT_DOORS&&q>0.5){
+    const oldest=s.disp.length?t-s.disp[0].born:0;
+    if(!(q>=VAN_CAP||(q>=12&&oldest>=60)))break;
+    const v=s.vans.find(x=>x.phase==='idle');if(!v)break;
+    const used=new Set(s.vans.filter(x=>x.phase==='loading').map(x=>x.door));
+    let door=0;while(used.has(door))door++;
+    v.load=qTake(s.disp,Math.min(VAN_CAP,q));v.total=sumN(v.load);v.done=0;
+    v.phase='loading';v.left=LOAD_MIN;v.door=door;v.route=(v.route+1)%6;
+    loading++;q=qTotal(s.disp);
+  }
+  // Entregas a tiempo, ventana de 60 min
+  s.deliv=s.deliv.filter(d=>t-d.t<60);
+  let tot=0,late=0;for(const d of s.deliv){tot+=d.n;if(d.late)late+=d.n;}
+  if(tot>3)s.otd=100*(1-late/tot);
+}
+
+function metrics(s){
+  const pick=qTotal(s.pick),pack=qTotal(s.pack),disp=qTotal(s.disp),rate=orderRate(s.t);
+  const by=p=>s.vans.filter(v=>v.phase===p).length;
+  let lastHour=0;for(const d of s.deliv)lastHour+=d.n;
+  return{t:s.t,ordersHour:rate*60,pending:pick+pack+disp,
+    inbound:{waiting:s.trucksQueue,busy:s.doors.filter(d=>d.busy).length,pallets:s.palletsToday,next:Math.max(0,s.nextTruck)},
+    storage:{occ:100*s.stock/SLOTS,free:SLOTS-s.stock,stock:s.stock,cover:s.stock/(PALLET_PER_ORDER*rate*60)},
+    picking:{backlog:pick,min:pick/Math.max(0.1,s.pickCap),tph:s.pickedLast*60,active:Math.round(PICKERS*s.pickCap/(PICKERS*PICK_RATE))},
+    packing:{queue:pack,min:pack/Math.max(0.1,s.packCap),tph:s.packedLast*60,active:Math.round(PACKERS*s.packCap/(PACKERS*PACK_RATE))},
+    dispatch:{queue:disp,loading:by('loading'),idle:by('idle'),oldest:s.disp.length?s.t-s.disp[0].born:0},
+    lastmile:{otd:s.otd,route:by('route'),lastHour,late:s.lateToday}};
+}
+
+function vanProgress(v,s){
+  if(v.phase==='route'){const tr=factor(s,'traffic');const frac=Math.min(1,Math.max(0,1-Math.max(0,v.next)/(DELIVERY_MIN*tr)));return Math.min(1,(v.done+frac)/Math.max(1,v.total));}
+  if(v.phase==='return')return Math.min(1,Math.max(0,1-v.left/Math.max(1,v.retTotal)));
+  return 0;
+}
+function renderState(s){
+  return{doors:s.doors.map(d=>({busy:d.busy,left:d.left})),trucksQueue:s.trucksQueue,stock:s.stock,
+    pick:qTotal(s.pick),pack:qTotal(s.pack),disp:qTotal(s.disp),pickedLast:s.pickedLast,
+    pickActive:Math.round(PICKERS*s.pickCap/(PICKERS*PICK_RATE)),packActive:Math.round(PACKERS*s.packCap/(PACKERS*PACK_RATE)),
+    vans:s.vans.map(v=>({phase:v.phase,route:v.route,door:v.door,p:vanProgress(v,s)}))};
+}
+function cloneState(s){return typeof structuredClone==='function'?structuredClone(s):JSON.parse(JSON.stringify(s));}
+// ===SIM END===
+
+// ---------- Etapas: qué se mide y cuándo una etapa está "enferma" ----------
+const nf=v=>Math.round(v).toLocaleString('es-AR');
+const STAGES=[
+  {id:'inbound',name:'Recepción',desc:'Los camiones de proveedores descargan pallets en tres puertas de andén.',x:-36,z:0,w:12,d:24,fit:[-60,-29,-14,25],
+   prim:{get:m=>m.inbound.waiting,label:'Camiones esperando puerta',warn:2,crit:4},
+   reason:m=>m.inbound.waiting===0?'Ningún camión espera puerta':`${m.inbound.waiting} ${m.inbound.waiting===1?'camión espera':'camiones esperan'} para descargar`,
+   short:m=>`${m.inbound.waiting} en espera`,
+   kpis:m=>[[m.inbound.waiting,'','Camiones esperando'],[m.inbound.busy,'de 3','Puertas descargando'],[m.inbound.pallets,'','Pallets recibidos hoy'],[m.inbound.next,'min','Próximo arribo programado']]},
+  {id:'storage',name:'Almacenamiento',desc:'Racks de pallets que abastecen al picking.',x:-20,z:0,w:16,d:24,
+   prim:{get:m=>m.storage.occ,label:'Ocupación de posiciones (%)',warn:85,crit:94},
+   reason:m=>`Ocupación al ${nf(m.storage.occ)}% de las posiciones`,
+   short:m=>`${nf(m.storage.occ)}%`,
+   kpis:m=>[[m.storage.occ,'%','Ocupación'],[m.storage.free,'','Posiciones libres'],[m.storage.cover,'h','Cobertura de stock',1],[m.storage.stock,'','Pallets en stock']]},
+  {id:'picking',name:'Picking',desc:'Los operarios arman cada orden tomando productos de los racks.',x:-5,z:0,w:10,d:24,
+   prim:{get:m=>m.picking.min,label:'Backlog en minutos de trabajo',warn:30,crit:60},
+   reason:m=>`${nf(m.picking.backlog)} órdenes pendientes, ${nf(m.picking.min)} min de trabajo`,
+   short:m=>`${nf(m.picking.min)} min`,
+   kpis:m=>[[m.picking.backlog,'','Órdenes pendientes'],[m.picking.min,'min','Backlog en tiempo'],[m.picking.tph,'/h','Órdenes armadas'],[m.picking.active,'de 15','Pickers trabajando']]},
+  {id:'packing',name:'Empaque',desc:'Cada orden se embala, se etiqueta y vuelve a la cinta.',x:8,z:0,w:12,d:24,
+   prim:{get:m=>m.packing.min,label:'Cola en minutos de trabajo',warn:15,crit:30},
+   reason:m=>`${nf(m.packing.queue)} órdenes en cola, ${nf(m.packing.min)} min de trabajo`,
+   short:m=>`${nf(m.packing.min)} min`,
+   kpis:m=>[[m.packing.queue,'','Órdenes en cola'],[m.packing.min,'min','Cola en tiempo'],[m.packing.tph,'/h','Órdenes empacadas'],[m.packing.active,'de 6','Puestos con personal']]},
+  {id:'dispatch',name:'Despacho',desc:'Las órdenes se agrupan en jaulas y se cargan en los vehículos de reparto.',x:22,z:0,w:12,d:24,fit:[16,45,-26,14],
+   prim:{get:m=>m.dispatch.queue,label:'Órdenes esperando vehículo',warn:100,crit:180},
+   reason:m=>m.dispatch.idle===0&&m.dispatch.queue>=VAN_CAP?`No quedan vehículos libres y hay ${nf(m.dispatch.queue)} órdenes esperando`:`${nf(m.dispatch.queue)} órdenes esperando vehículo`,
+   short:m=>`${nf(m.dispatch.queue)} esperando`,
+   kpis:m=>[[m.dispatch.queue,'','Órdenes esperando'],[m.dispatch.loading,'de 4','Andenes cargando'],[m.dispatch.idle,'de 18','Vehículos disponibles'],[m.dispatch.oldest,'min','Edad de la orden más vieja']]},
+  {id:'lastmile',name:'Última milla',desc:'Reparto a domicilio en zona norte, con promesa de entrega en menos de 3 horas.',x:68,z:0,w:52,d:52,fit:[42,94,-26,26],
+   prim:{get:m=>m.lastmile.otd,label:'Entregas a tiempo en la última hora (%)',warn:95,crit:88,invert:true},
+   reason:m=>`${nf(m.lastmile.otd)}% de entregas a tiempo en la última hora`,
+   short:m=>`${nf(m.lastmile.otd)}% a tiempo`,
+   kpis:m=>[[m.lastmile.otd,'%','Entregas a tiempo'],[m.lastmile.route,'','Vehículos en reparto'],[m.lastmile.lastHour,'','Entregas en la última hora'],[m.lastmile.late,'','Entregas tarde hoy']]}
+];
+const STAGE_BY=Object.fromEntries(STAGES.map(s=>[s.id,s]));
+const LV_TXT={ok:'Normal',warn:'Atención',crit:'Crítico'};
+const LV_RANK={ok:0,warn:1,crit:2};
+function level(st,m){const p=st.prim,v=p.get(m);if(p.invert)return v<p.crit?'crit':v<p.warn?'warn':'ok';return v>=p.crit?'crit':v>=p.warn?'warn':'ok';}
+const fmtTime=t=>{const m=((Math.round(t)%1440)+1440)%1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
+
+// ---------- Estado vivo + historia + predicción ----------
+const state=initState(6*60);
+const hist=[];
+for(let i=0;i<260;i++){step(state);hist.push(metrics(state));}
+let forecast=[];
+function computeForecast(){const c=cloneState(state);const out=[];for(let i=1;i<=120;i++){step(c);out.push({m:metrics(c),rs:renderState(c)});}forecast=out;}
+computeForecast();
+
+// ================= ESCENA 3D =================
+const stageEl=document.getElementById('stage'),canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,-400,700);
+const ISO=new THREE.Vector3(1,1,1).normalize();
+const R=new THREE.Vector3(1,0,-1).normalize(),U=new THREE.Vector3(-1,2,-1).normalize();
+const view={target:new THREE.Vector3(),H:60};
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const hemi=new THREE.HemisphereLight(0xffffff,0x8d979e,0.78);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,0.62);
+sun.position.set(-50,90,40);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-120,right:120,top:120,bottom:-120,near:1,far:320});
+sun.shadow.bias=-0.0006;scene.add(sun,sun.target);
+
+const C={cab:0x2F5D8C,trailer:0xE6E9EC,chassis:0x2B3036,cardboard:0xC49A5C,tote:0x3D78AE,vest:0xEE8A2A,head:0xC99E7A,
+  post:0x55697A,beam:0xDD7A36,belt:0x353C42,table:0x8E9BA6,forklift:0xF0BE2E,van:0xF3F4F5,cage:0x7C8994,tree:0x5E9A62,dock:0x3A4249};
+const FLOOR=0.3;
+const geoCache={},matCache={},M={};
+const boxGeo=(w,h,d)=>{const k=w+'|'+h+'|'+d;return geoCache[k]||(geoCache[k]=new THREE.BoxGeometry(w,h,d));};
+const lam=c=>matCache[c]||(matCache[c]=new THREE.MeshLambertMaterial({color:c}));
+['ground','road','apron','slab','wall','zone'].forEach(n=>M[n]=new THREE.MeshLambertMaterial());
+function add(parent,geo,mat,x,y,z,cast=true){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=cast;m.receiveShadow=true;parent.add(m);return m;}
+function boxOn(parent,w,h,d,mat,x,base,z,cast=true){return add(parent,boxGeo(w,h,d),mat,x,base+h/2,z,cast);}
+const dummy=new THREE.Object3D();
+function inst(geo,mat,positions){const im=new THREE.InstancedMesh(geo,mat,positions.length);positions.forEach((p,i)=>{dummy.position.set(p[0],p[1],p[2]);dummy.rotation.set(0,p[3]||0,0);dummy.scale.setScalar(1);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);if(p[4]!==undefined)im.setColorAt(i,new THREE.Color(p[4]));});im.castShadow=true;im.receiveShadow=true;im.count=0;scene.add(im);return im;}
+function showAll(im){im.count=im.instanceMatrix.count;}
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+// Suelo, playones y calles
+const ground=add(scene,new THREE.PlaneGeometry(520,280),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
+boxOn(scene,14,0.04,40,M.apron,-51,0,6,false);
+boxOn(scene,74,0.04,5,M.road,-95,0,21,false);
+boxOn(scene,15,0.04,39,M.apron,37.5,0,-6.5,false);
+[44,56,68,80,92].forEach(x=>boxOn(scene,3,0.06,51,M.road,x,0,0,false));
+[-24,-12,0,12,24].forEach(z=>boxOn(scene,51,0.06,3,M.road,68,0,z,false));
+
+// Nave: piso y paredes bajas (corte tipo maqueta)
+boxOn(scene,74,FLOOR,28,M.slab,-7,0,0,false);
+boxOn(scene,74,1.6,0.3,M.wall,-7,FLOOR,-13.85);
+boxOn(scene,74,0.45,0.3,M.wall,-7,FLOOR,13.85,false);
+function wallZ(x,h,gaps,cast){const cuts=[-14,...gaps.flatMap(g=>[g-1.7,g+1.7]),14];for(let i=0;i<cuts.length;i+=2){const z0=cuts[i],z1=cuts[i+1];boxOn(scene,0.3,h,z1-z0,M.wall,x,FLOOR,(z0+z1)/2,cast);}}
+wallZ(-43.85,1.6,[-8,0,8],true);
+wallZ(29.85,0.45,[-9,-3,3,9],false);
+
+// Zonas: placa de piso + marco de salud + volumen invisible para el click
+const zones={};const hitBoxes=[];
+const hitMat=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
+STAGES.forEach(st=>{
+  const inside=st.id!=='lastmile';const base=inside?FLOOR:0.06;
+  if(inside)boxOn(scene,st.w-0.4,0.03,st.d-0.4,M.zone,st.x,FLOOR,st.z,false);
+  const fm=new THREE.MeshBasicMaterial({color:0x21946F});const t=0.38;
+  boxOn(scene,st.w+t,0.06,t,fm,st.x,base,st.z-st.d/2,false);
+  boxOn(scene,st.w+t,0.06,t,fm,st.x,base,st.z+st.d/2,false);
+  boxOn(scene,t,0.06,st.d,fm,st.x-st.w/2,base,st.z,false);
+  boxOn(scene,t,0.06,st.d,fm,st.x+st.w/2,base,st.z,false);
+  const hb=add(scene,boxGeo(st.w,6,st.d),hitMat,st.x,3,st.z,false);hb.receiveShadow=false;hb.userData.id=st.id;hitBoxes.push(hb);
+  zones[st.id]={frameMat:fm};
+});
+
+// ---- Recepción ----
+const DOCK_Z=[-8,0,8];
+DOCK_Z.forEach(z=>boxOn(scene,1.4,0.05,3,lam(C.dock),-43,FLOOR,z,false));
+function makeTruck(){const g=new THREE.Group();boxOn(g,8.2,0.45,2.0,lam(C.chassis),-1,0.15,0);boxOn(g,6,2.3,2.3,lam(C.trailer),0,0.6,0);boxOn(g,1.9,2.0,2.3,lam(C.cab),-4.05,0.6,0);scene.add(g);return g;}
+const dockTrucks=DOCK_Z.map(z=>{const g=makeTruck();g.position.set(-62,0.04,z);g.visible=false;return g;});
+const waitTrucks=Array.from({length:7},(_,i)=>{const g=makeTruck();g.rotation.y=Math.PI;g.position.set(-64-i*9.5,0.04,21);g.visible=false;return g;});
+const palletGeo=boxGeo(1.25,0.9,1.25);
+const dockPallets=DOCK_Z.map(z=>inst(palletGeo,lam(C.cardboard),[[-41.3,FLOOR+0.45,z-0.75],[-41.3,FLOOR+0.45,z+0.75],[-39.8,FLOOR+0.45,z-0.75],[-39.8,FLOOR+0.45,z+0.75]]));
+function makeForklift(){const g=new THREE.Group();boxOn(g,1.6,0.8,1.1,lam(C.forklift),0,0.15,0);boxOn(g,0.12,2.2,1.0,lam(C.chassis),0.9,0.15,0);boxOn(g,0.9,0.08,0.9,lam(C.chassis),1.4,0.3,0);boxOn(g,0.8,0.8,0.8,lam(C.cardboard),1.4,0.38,0);scene.add(g);return g;}
+const forklift=makeForklift();forklift.position.set(-38,FLOOR,-11.9);
+
+// ---- Almacenamiento ----
+const RACK_X=[-25,-21,-17,-13];
+const posts=[],slots=[];
+RACK_X.forEach(x=>{
+  [FLOOR+1.15,FLOOR+2.35,FLOOR+3.45].forEach(y=>boxOn(scene,1.6,0.1,20.2,lam(C.beam),x,y,0));
+  for(let zz=-10;zz<=10;zz+=2){posts.push([x-0.75,FLOOR+1.8,zz]);posts.push([x+0.75,FLOOR+1.8,zz]);}
+  for(let b=0;b<10;b++)[FLOOR,FLOOR+1.25,FLOOR+2.45].forEach(y=>slots.push([x,y+0.45,-9+2*b]));
+});
+showAll(inst(boxGeo(0.12,3.6,0.12),lam(C.post),posts));
+const rackPallets=inst(boxGeo(1.3,0.9,1.6),lam(C.cardboard),shuffle(slots));
+
+// ---- Picking ----
+boxOn(scene,1.6,0.9,2.4,lam(C.table),-3.2,FLOOR,-5.5);
+boxOn(scene,1.6,0.9,2.4,lam(C.table),-3.2,FLOOR,1.5);
+const bodyGeo=new THREE.CylinderGeometry(0.26,0.3,0.95,8),headGeo=new THREE.SphereGeometry(0.22,10,8);
+function makePerson(color){const g=new THREE.Group();add(g,bodyGeo,lam(color),0,0.48,0);add(g,headGeo,lam(C.head),0,1.15,0);scene.add(g);return g;}
+const pickers=Array.from({length:PICKERS},(_,i)=>{const g=makePerson(C.vest);g.position.set(-6,FLOOR,-9.4+i*(13.6/(PICKERS-1)));g.userData.ph=i*0.9;return g;});
+const totePos=[];for(let k=0;k<3;k++)for(let r=0;r<5;r++)for(let c=0;c<6;c++)totePos.push([-9.2+c*0.95,FLOOR+0.26+k*0.52,6.6+r*0.85]);
+const totes=inst(boxGeo(0.82,0.5,0.66),lam(C.tote),totePos);
+
+// ---- Cinta transportadora ----
+boxOn(scene,29,0.22,1.3,lam(C.belt),12,FLOOR+0.85,-2);
+const legs=[];for(let x=-1.5;x<=26;x+=3)legs.push([x,FLOOR+0.42,-2]);
+showAll(inst(boxGeo(0.16,0.85,1.1),lam(C.post),legs));
+const BELT_Y=FLOOR+1.07+0.26;
+const beltIM=new THREE.InstancedMesh(boxGeo(0.7,0.52,0.7),lam(C.cardboard),90);beltIM.castShadow=true;beltIM.count=0;scene.add(beltIM);
+const beltBoxes=[];let spawnAcc=0;
+
+// ---- Empaque ----
+const PACK_TABLES=[[5,2.5],[11,2.5],[5,6.5],[11,6.5],[5,10.5],[11,10.5]];
+PACK_TABLES.forEach(([x,z])=>boxOn(scene,2.4,0.9,1.3,lam(C.table),x,FLOOR,z));
+const packers=PACK_TABLES.map(([x,z],i)=>{const g=makePerson(0x4E8F7A);g.position.set(x,FLOOR,z+1.15);g.userData.ph=i;return g;});
+const pilePos=[];for(let k=0;k<3;k++)for(let r=0;r<3;r++)for(let c=0;c<8;c++)pilePos.push([3.2+c*1.15,FLOOR+0.26+k*0.53,-5.2-r*1.05]);
+const pile=inst(boxGeo(0.75,0.52,0.75),lam(C.cardboard),pilePos);
+
+// ---- Despacho ----
+const CAGES=[[19.5,5.5],[19.5,10],[24.5,5.5],[24.5,10]];
+const cageEdges=new THREE.EdgesGeometry(boxGeo(3,2.4,3)),cageLine=new THREE.LineBasicMaterial({color:C.cage});
+const cagePos=[];
+CAGES.forEach(([x,z])=>{const l=new THREE.LineSegments(cageEdges,cageLine);l.position.set(x,FLOOR+1.2,z);scene.add(l);boxOn(scene,3,0.06,3,lam(C.post),x,FLOOR,z,false);
+  for(let k=0;k<3;k++)for(let j=0;j<3;j++)for(let i=0;i<3;i++)cagePos.push([x-0.92+i*0.92,FLOOR+0.42+k*0.76,z-0.92+j*0.92]);});
+const cageBoxes=inst(boxGeo(0.78,0.7,0.78),lam(C.cardboard),cagePos);
+const OUT_Z=[-9,-3,3,9];
+OUT_Z.forEach(z=>boxOn(scene,1.2,0.05,3,lam(C.dock),29,FLOOR,z,false));
+
+// ---- Última milla: barrio, árboles y vehículos ----
+const housePos=[],roofPos=[];
+const HOUSE_COL=[0xE2DCCF,0xD3DCE2,0xC9D6CB,0xE0D0C1,0xCAD1DB],ROOF_COL=[0x9C5B4A,0x6E7B86,0xA8705A,0x7E6A5C];
+[50,62,74,86].forEach(bx=>[-18,-6,6,18].forEach(bz=>[[-2.6,-2.6],[2.6,-2.6],[-2.6,2.6],[2.6,2.6]].forEach(([dx,dz])=>{
+  const h=1.8+rnd()*1.6;housePos.push([bx+dx,h/2,bz+dz,0,HOUSE_COL[Math.floor(rnd()*HOUSE_COL.length)],h]);
+  roofPos.push([bx+dx,h+0.65,bz+dz,Math.PI/4,ROOF_COL[Math.floor(rnd()*ROOF_COL.length)]]);})));
+const houses=new THREE.InstancedMesh(boxGeo(3.1,1,3.1),new THREE.MeshLambertMaterial(),housePos.length);
+housePos.forEach((p,i)=>{dummy.position.set(p[0],p[1],p[2]);dummy.rotation.set(0,0,0);dummy.scale.set(1,p[5],1);dummy.updateMatrix();houses.setMatrixAt(i,dummy.matrix);houses.setColorAt(i,new THREE.Color(p[4]));});
+dummy.scale.set(1,1,1);houses.castShadow=true;houses.receiveShadow=true;scene.add(houses);
+showAll(inst(new THREE.ConeGeometry(2.3,1.3,4),new THREE.MeshLambertMaterial(),roofPos));
+const treePos=[];for(let i=0;i<34;i++){const bx=[50,62,74,86][i%4],bz=[-18,-6,6,18][Math.floor(i/4)%4];treePos.push([bx+(rnd()-0.5)*1.2,0.9,bz+(rnd()<0.5?-5:5)*(0.55+rnd()*0.2)]);}
+showAll(inst(new THREE.ConeGeometry(0.8,1.8,7),lam(C.tree),treePos));
+
+function makeVan(){const g=new THREE.Group();boxOn(g,2.9,0.3,1.3,lam(C.chassis),0,0.12,0);boxOn(g,2.0,1.35,1.42,lam(C.van),-0.4,0.4,0);boxOn(g,0.85,0.95,1.42,lam(C.cab),1.0,0.4,0);scene.add(g);return g;}
+const LOT=Array.from({length:FLEET},(_,i)=>[35.2+(i%6)*1.65,-23.5+Math.floor(i/6)*3.6]);
+const vans=Array.from({length:FLEET},(_,i)=>{const g=makeVan();g.position.set(LOT[i][0],0.04,LOT[i][1]);g.rotation.y=Math.PI/2;return g;});
+const LOOPS=[
+  [[44,0],[44,-24],[68,-24],[68,0],[44,0]],
+  [[44,0],[44,24],[68,24],[68,0],[44,0]],
+  [[44,0],[68,0],[68,-12],[92,-12],[92,0],[68,0],[44,0]],
+  [[44,0],[68,0],[68,12],[92,12],[92,24],[56,24],[56,0],[44,0]],
+  [[44,0],[56,0],[56,-24],[92,-24],[92,-12],[80,-12],[80,0],[44,0]],
+  [[44,0],[80,0],[80,24],[92,24],[92,0],[80,0],[44,0]]
+];
+function mkPath(pts){const segs=[];let L=0;for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],l=Math.hypot(b[0]-a[0],b[1]-a[1]);segs.push({a,b,l,L0:L});L+=l;}return{segs,L};}
+const ROUTES=LOOPS.map(l=>mkPath([[37,0],...l]));
+function along(path,p){let d=Math.max(0,Math.min(1,p))*path.L;for(const s of path.segs){if(d<=s.L0+s.l||s===path.segs[path.segs.length-1]){const k=s.l?Math.min(1,(d-s.L0)/s.l):0;const dx=s.b[0]-s.a[0],dz=s.b[1]-s.a[1];return{x:s.a[0]+dx*k,z:s.a[1]+dz*k,ry:Math.atan2(-dz,dx),dx,dz};}}return{x:path.segs[0].a[0],z:path.segs[0].a[1],ry:0};}
+const RET_PATHS=LOT.map(([x,z])=>mkPath([[44,0],[38.5,0],[38.5,-13.5],[x,-13.5],[x,z]]));
+
+// Pulsos de entrega
+const pulseGeo=new THREE.RingGeometry(0.55,0.85,28);
+const pulses=Array.from({length:24},()=>{const m=new THREE.Mesh(pulseGeo,new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}));m.rotation.x=-Math.PI/2;m.visible=false;m.userData.life=0;scene.add(m);return m;});
+function spawnPulse(x,z,late){const p=pulses.find(q=>!q.visible);if(!p)return;p.visible=true;p.userData.life=1;p.position.set(x,0.25,z);p.material.color.copy(late?healthCol.crit:healthCol.ok);}
+
+// ---------- Tema ----------
+const healthCol={ok:new THREE.Color(),warn:new THREE.Color(),crit:new THREE.Color()};
+let futureCol=new THREE.Color();
+function applyTheme(){
+  const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
+  scene.background=new THREE.Color(g('--scene-bg'));
+  ['ground','road','apron','slab','wall','zone'].forEach(n=>M[n].color.set(g('--'+n)));
+  healthCol.ok.set(g('--ok'));healthCol.warn.set(g('--warn'));healthCol.crit.set(g('--crit'));futureCol=new THREE.Color(g('--future'));
+  const dark=new THREE.Color(g('--scene-bg')).getHSL({}).l<0.3;
+  hemi.intensity=dark?0.55:0.78;sun.intensity=dark?0.5:0.62;
+}
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+
+// ---------- Cámara isométrica ----------
+function updateCam(){const w=stageEl.clientWidth,h=stageEl.clientHeight,a=w/Math.max(1,h);cam.left=-view.H*a;cam.right=view.H*a;cam.top=view.H;cam.bottom=-view.H;cam.position.copy(view.target).addScaledVector(ISO,250);cam.lookAt(view.target);cam.updateProjectionMatrix();}
+function fitTarget([x0,x1,z0,z1],ymax=4,margin=1.12){
+  const w=stageEl.clientWidth,h=stageEl.clientHeight,a=w/Math.max(1,h);let sx0=1e9,sx1=-1e9,sy0=1e9,sy1=-1e9;const p=new THREE.Vector3();
+  for(const x of[x0,x1])for(const z of[z0,z1])for(const y of[0,ymax]){p.set(x,y,z);const sx=p.dot(R),sy=p.dot(U);sx0=Math.min(sx0,sx);sx1=Math.max(sx1,sx);sy0=Math.min(sy0,sy);sy1=Math.max(sy1,sy);}
+  const H=Math.max((sy1-sy0)/2,(sx1-sx0)/2/a)*margin;
+  return{target:new THREE.Vector3().addScaledVector(R,(sx0+sx1)/2).addScaledVector(U,(sy0+sy1)/2),H:Math.min(110,Math.max(6,H))};
+}
+const OVERVIEW=[-64,95,-27,27];
+const zoneBounds=st=>st.fit||[st.x-st.w/2,st.x+st.w/2,st.z-st.d/2,st.z+st.d/2];
+let tween=null;
+function flyTo(b){const f=fitTarget(b);tween={t0:performance.now(),dur:reduced?0:850,fromT:view.target.clone(),fromH:view.H,toT:f.target,toH:f.H};}
+function tweenStep(now){if(!tween)return;const k=tween.dur?Math.min(1,(now-tween.t0)/tween.dur):1;const e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;view.target.lerpVectors(tween.fromT,tween.toT,e);view.H=tween.fromH+(tween.toH-tween.fromH)*e;updateCam();if(k>=1)tween=null;}
+function zoomAt(px,py,f){const w=stageEl.clientWidth,h=stageEl.clientHeight,wpp=2*view.H/h;const nH=Math.min(110,Math.max(6,view.H*f)),k=1-nH/view.H;view.target.addScaledVector(R,(px-w/2)*wpp*k).addScaledVector(U,-(py-h/2)*wpp*k);view.H=nH;updateCam();}
+function resize(){const w=stageEl.clientWidth,h=stageEl.clientHeight;renderer.setSize(w,h,false);updateCam();}
+new ResizeObserver(resize).observe(stageEl);
+resize();
+{const f=fitTarget(OVERVIEW);view.target.copy(f.target);view.H=f.H;updateCam();}
+
+// Interacción: arrastrar, zoom, pellizco, click
+const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function pick(cx,cy){const r=canvas.getBoundingClientRect();ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);raycaster.setFromCamera(ndc,cam);const hit=raycaster.intersectObjects(hitBoxes,false)[0];return hit?hit.object.userData.id:null;}
+const pointers=new Map();let moved=0,pinch=null;
+const pdist=()=>{const [a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+stageEl.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;stageEl.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;tween=null;if(pointers.size===2)pinch={d:pdist(),H:view.H};});
+stageEl.addEventListener('pointermove',e=>{
+  const p=pointers.get(e.pointerId);
+  if(!p){if(e.pointerType==='mouse')canvas.style.cursor=pick(e.clientX,e.clientY)?'pointer':'grab';return;}
+  const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+  if(pointers.size===1){const wpp=2*view.H/stageEl.clientHeight;view.target.addScaledVector(R,-dx*wpp).addScaledVector(U,dy*wpp);moved+=Math.abs(dx)+Math.abs(dy);updateCam();}
+  else if(pointers.size===2&&pinch){view.H=Math.min(110,Math.max(6,pinch.H*pinch.d/Math.max(1,pdist())));moved+=10;updateCam();}
+});
+function endPointer(e){if(!pointers.has(e.pointerId))return;if(pointers.size===1&&moved<6&&e.type==='pointerup'){const id=pick(e.clientX,e.clientY);if(id)select(id);}pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;}
+stageEl.addEventListener('pointerup',endPointer);stageEl.addEventListener('pointercancel',endPointer);
+stageEl.addEventListener('wheel',e=>{e.preventDefault();tween=null;const r=stageEl.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(e.deltaY*0.0012));},{passive:false});
+
+// ---------- Etiquetas flotantes ----------
+const labelsEl=document.getElementById('labels');
+const labels={};
+STAGES.forEach(st=>{const b=document.createElement('button');b.className='zlabel';b.innerHTML=`<span class="dot"></span><span>${st.name}</span><span class="v"></span>`;b.addEventListener('click',()=>select(st.id));labelsEl.appendChild(b);labels[st.id]={el:b,dot:b.querySelector('.dot'),v:b.querySelector('.v'),anchor:new THREE.Vector3(st.x,st.id==='lastmile'?7:5,st.z)};});
+const tmpV=new THREE.Vector3();
+function positionLabels(){const w=stageEl.clientWidth,h=stageEl.clientHeight;const compact=view.H>32;for(const id in labels){const L=labels[id];tmpV.copy(L.anchor).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-60||x>w+60||y<-20||y>h+40;L.el.style.display=off?'none':'flex';if(!off)L.el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%)`;L.el.classList.toggle('compact',compact);L.el.classList.toggle('sel',selected===id);}}
+
+// ================= LOOP =================
+let speed=1,paused=false,horizon=0,selected=null,acc=0,last=performance.now(),animT=0,panelDirty=true,lastPanel=0,incKey='';
+let levels={};
+const vanVis=vans.map((g,i)=>({x:g.position.x,z:g.position.z,ry:g.rotation.y}));
+const k=(dt,rate)=>1-Math.exp(-dt*rate);
+function angLerp(a,b,t){let d=b-a;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;return a+d*t;}
+
+function liveStep(){
+  const before=state.vans.map(v=>v.done);
+  step(state);hist.push(metrics(state));if(hist.length>240)hist.shift();
+  if(horizon===0)state.vans.forEach((v,i)=>{if(v.phase!=='loading'&&v.done>before[i]+0.5)spawnPulse(vanVis[i].x,vanVis[i].z,v.lastLate);});
+}
+
+function animateScene(rs,dt){
+  const run=paused?0:1,sp=Math.min(speed,6);
+  animT+=dt*run;
+  // Recepción
+  rs.doors.forEach((d,i)=>{const tr=dockTrucks[i];if(d.busy&&!tr.visible){tr.visible=true;tr.position.x=-60;}tr.position.x+=((d.busy?-47.6:-63)-tr.position.x)*k(dt,3);if(!d.busy&&tr.position.x<-62)tr.visible=false;
+    dockPallets[i].count=d.busy?Math.min(4,Math.ceil((1-d.left/UNLOAD_MIN)*4)):0;});
+  waitTrucks.forEach((t,i)=>t.visible=i<rs.trucksQueue);
+  const anyDoor=rs.doors.some(d=>d.busy);
+  if(anyDoor&&run){forklift.userData.ph=(forklift.userData.ph||0)+dt*0.55*sp;}
+  const fph=forklift.userData.ph||0;forklift.position.x=-40+(1-Math.cos(fph))/2*14;forklift.rotation.y=Math.sin(fph)>=0?0:Math.PI;
+  // Almacenamiento
+  rackPallets.count=Math.round(rs.stock/SLOTS*rackPallets.instanceMatrix.count);
+  // Picking
+  totes.count=Math.min(totes.instanceMatrix.count,Math.round(rs.pick/2.5));
+  pickers.forEach((g,i)=>{const active=i<rs.pickActive;if(active&&run)g.userData.ph+=dt*(0.7+0.15*(i%3))*sp;const ph=g.userData.ph;g.position.x=active?-9.2+(1-Math.cos(ph))/2*5:-4.6;g.rotation.y=Math.sin(ph)>=0?0:Math.PI;});
+  // Cinta
+  const beltV=run*(2.4+sp*0.45);
+  spawnAcc+=dt*run*Math.min(7,rs.pickedLast*0.45*sp);
+  while(spawnAcc>=1&&beltBoxes.length<90){beltBoxes.push(-2.2);spawnAcc-=1;}
+  if(spawnAcc>1)spawnAcc=1;
+  for(let i=beltBoxes.length-1;i>=0;i--){beltBoxes[i]+=beltV*dt;if(beltBoxes[i]>26.2)beltBoxes.splice(i,1);}
+  beltBoxes.forEach((x,i)=>{dummy.position.set(x,BELT_Y,-2);dummy.rotation.set(0,0,0);dummy.updateMatrix();beltIM.setMatrixAt(i,dummy.matrix);});
+  beltIM.count=beltBoxes.length;beltIM.instanceMatrix.needsUpdate=true;
+  // Empaque
+  pile.count=Math.min(pile.instanceMatrix.count,Math.round(rs.pack/1.5));
+  packers.forEach((g,i)=>{g.visible=i<rs.packActive;g.position.y=FLOOR+(run&&g.visible?Math.abs(Math.sin(animT*3*sp/2+i))*0.08:0);});
+  // Despacho
+  cageBoxes.count=Math.min(cageBoxes.instanceMatrix.count,Math.round(rs.disp/1.5));
+  // Vehículos
+  rs.vans.forEach((v,i)=>{let tx,tz,try_;
+    if(v.phase==='idle'){[tx,tz]=LOT[i];try_=Math.PI/2;}
+    else if(v.phase==='loading'){tx=33.4;tz=OUT_Z[Math.max(0,v.door)];try_=0;}
+    else if(v.phase==='route'){const a=along(ROUTES[v.route],v.p);const off=((i%3)-1)*0.55,l=Math.hypot(a.dx||1,a.dz||0)||1;tx=a.x+(-(a.dz||0)/l)*off;tz=a.z+((a.dx||1)/l)*off;try_=a.ry;}
+    else{const a=along(RET_PATHS[i],v.p);tx=a.x;tz=a.z;try_=a.ry;}
+    const vv=vanVis[i],kk=k(dt,5);vv.x+=(tx-vv.x)*kk;vv.z+=(tz-vv.z)*kk;vv.ry=angLerp(vv.ry,try_,k(dt,7));
+    vans[i].position.set(vv.x,0.06,vv.z);vans[i].rotation.y=vv.ry;});
+  // Pulsos
+  pulses.forEach(p=>{if(!p.visible)return;p.userData.life-=dt*0.8;if(p.userData.life<=0){p.visible=false;return;}const l=p.userData.life;p.scale.setScalar(1+(1-l)*2.4);p.material.opacity=l*0.9;});
+  // Marcos de salud
+  const pulseK=reduced?1:0.72+0.28*Math.sin(animT*5);
+  STAGES.forEach(st=>{const lv=levels[st.id]||'ok';const c=zones[st.id].frameMat.color;c.copy(healthCol[lv]);if(lv==='crit')c.multiplyScalar(pulseK);if(horizon>0)c.lerp(futureCol,0.25);});
+  hemi.color.set(horizon>0?0xE2DBFF:0xffffff);
+}
+
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000);last=now;
+  let stepped=false;
+  if(!paused){acc+=dt*speed;let guard=0;while(acc>=1&&guard<60){acc-=1;liveStep();stepped=true;guard++;}}
+  if(stepped){computeForecast();clockEl.textContent=fmtTime(state.t);panelDirty=true;const kk=state.inc.map(i=>i.kind+i.until).join(',');if(kk!==incKey){incKey=kk;renderIncidents();}}
+  tweenStep(now);
+  const rs=horizon>0&&forecast[horizon-1]?forecast[horizon-1].rs:renderState(state);
+  if(panelDirty&&now-lastPanel>200){updatePanel();panelDirty=false;lastPanel=now;}
+  animateScene(rs,dt);
+  positionLabels();
+  renderer.render(scene,cam);
+  requestAnimationFrame(frame);
+}
+
+// ================= PANEL =================
+const panel=document.getElementById('panel'),clockEl=document.getElementById('clock');
+const dispM=()=>horizon>0&&forecast[horizon-1]?forecast[horizon-1].m:metrics(state);
+function kpiHTML(list){return list.map(([v,unit,label,dec])=>{const n=dec?v.toFixed(dec).replace('.',','):nf(v);return `<div class="kpi"><div class="n">${n}${unit?`<small>${unit}</small>`:''}</div><div class="l">${label}</div></div>`;}).join('');}
+function transitions(st,curM){
+  const lv0=LV_RANK[level(st,curM)];
+  for(let i=0;i<forecast.length;i++){const lv=level(st,forecast[i].m);if(LV_RANK[lv]>lv0)return{kind:'worse',lv,t:forecast[i].m.t,in:i+1};}
+  if(lv0>0)for(let i=0;i<forecast.length;i++){if(LV_RANK[level(st,forecast[i].m)]<lv0)return{kind:'better',lv:level(st,forecast[i].m),t:forecast[i].m.t,in:i+1};}
+  return null;
+}
+function insightText(st){
+  const cur=metrics(state),lv=level(st,cur),tr=transitions(st,cur);
+  if(tr&&tr.kind==='worse')return `Si nada cambia, pasa a ${LV_TXT[tr.lv].toLowerCase()} a las ${fmtTime(tr.t)}, dentro de ${tr.in} min.`;
+  if(tr&&tr.kind==='better')return `La predicción indica que se normaliza hacia las ${fmtTime(tr.t)}, dentro de ${tr.in} min.`;
+  if(lv!=='ok')return `Sigue en ${LV_TXT[lv].toLowerCase()} durante las próximas 2 horas, según la predicción.`;
+  return 'Sin deterioro previsto en las próximas 2 horas.';
+}
+function overviewHTML(){return `
+<h2>Vista general</h2>
+<p class="sub">Centro de distribución Pilar y reparto en zona norte.</p>
+<div class="kpis" data-kpis></div>
+<h3>Etapas del flujo</h3>
+<ol class="flow">${STAGES.map((s,i)=>`<li><button data-go="${s.id}"><span class="num">${i+1}</span><span class="nm">${s.name}</span><span class="val" data-sv="${s.id}"></span><span class="dot" data-dot="${s.id}"></span></button></li>`).join('')}</ol>
+<h3>Próximas 2 horas</h3>
+<ul class="alerts" data-alerts></ul>
+<h3>Probá un incidente</h3>
+<p class="hint">Disparalo y mirá cómo se propaga por la operación y por la predicción.</p>
+<div class="incidents" data-incidents></div>`;}
+function stageHTML(st){const hasInc=Object.values(INCIDENTS).some(i=>i.stage===st.id);return `
+<button class="back" data-back>Vista general</button>
+<h2>${st.name}</h2>
+<p class="sub">${st.desc}</p>
+<div class="health" data-health></div>
+<div class="chart"><div class="chart-cap">${st.prim.label}</div><div data-chart></div></div>
+<p class="insight" data-insight></p>
+<div class="kpis" data-kpis></div>
+${hasInc?`<h3>Probá un incidente</h3><div class="incidents" data-incidents data-only="${st.id}"></div>`:''}`;}
+function buildPanel(){panel.innerHTML=selected?stageHTML(STAGE_BY[selected]):overviewHTML();panel.scrollTop=0;renderIncidents();updatePanel();}
+function renderIncidents(){
+  const box=panel.querySelector('[data-incidents]');if(!box)return;const only=box.dataset.only;
+  box.innerHTML=Object.entries(INCIDENTS).filter(([,i])=>!only||i.stage===only).map(([kind,i])=>{
+    const on=state.inc.find(x=>x.kind===kind);
+    return on?`<div class="inc-on"><div><b>${i.label}</b><span>Activo hasta las ${fmtTime(on.until)}</span></div><button class="ghost" data-resolve="${kind}">Resolver</button></div>`
+             :`<button class="inc-btn" data-inc="${kind}">Simular: ${i.label.charAt(0).toLowerCase()+i.label.slice(1)}</button>`;}).join('');
+}
+function chartSVG(st){
+  const W=328,H=158,pl=30,pr=8,pt=8,pb=22,p=st.prim;
+  const past=hist.slice(-91).map(m=>({x:m.t-state.t,y:p.get(m)}));
+  const fut=forecast.map(f=>({x:f.m.t-state.t,y:p.get(f.m)}));
+  const ys=past.concat(fut).map(q=>q.y);
+  let y0,y1;
+  if(p.invert){y1=100;y0=Math.max(0,Math.floor((Math.min(p.crit-5,...ys))/5)*5);}else{y0=0;y1=Math.max(p.crit*1.25,...ys)*1.05;}
+  const sx=x=>pl+(x+90)/210*(W-pl-pr),sy=y=>pt+(1-(y-y0)/(y1-y0))*(H-pt-pb);
+  const line=pts=>pts.map((q,i)=>(i?'L':'M')+sx(q.x).toFixed(1)+','+sy(q.y).toFixed(1)).join('');
+  const band=(a,b,cls)=>{const ya=sy(a),yb=sy(b);return `<rect class="${cls}" x="${pl}" y="${Math.min(ya,yb).toFixed(1)}" width="${W-pl-pr}" height="${Math.abs(ya-yb).toFixed(1)}"/>`;};
+  const bands=p.invert?band(p.crit,p.warn,'c-warn')+band(y0,p.crit,'c-crit'):band(p.warn,p.crit,'c-warn')+band(p.crit,y1,'c-crit');
+  const futLine=past.length?[past[past.length-1]].concat(fut):fut;
+  const hp=horizon>0&&fut[horizon-1]?`<circle class="c-pt" cx="${sx(fut[horizon-1].x).toFixed(1)}" cy="${sy(fut[horizon-1].y).toFixed(1)}" r="4.5"/>`:'';
+  const yl=v=>p.invert||v<10?nf(v):nf(v);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${p.label}: últimos 90 minutos y predicción a 2 horas">
+${bands}
+<line class="c-now" x1="${sx(0)}" x2="${sx(0)}" y1="${pt}" y2="${H-pb}"/>
+<path class="c-past" d="${line(past)}"/><path class="c-fut" d="${line(futLine)}"/>${hp}
+<text class="c-ax" x="${pl-5}" y="${sy(p.warn)+4}" text-anchor="end">${yl(p.warn)}</text>
+<text class="c-ax" x="${pl-5}" y="${sy(p.crit)+4}" text-anchor="end">${yl(p.crit)}</text>
+<text class="c-ax" x="${sx(-90)}" y="${H-6}">${fmtTime(state.t-90)}</text>
+<text class="c-ax" x="${sx(0)}" y="${H-6}" text-anchor="middle">Ahora</text>
+<text class="c-ax" x="${sx(60)}" y="${H-6}" text-anchor="middle">+1 h</text>
+<text class="c-ax" x="${sx(120)}" y="${H-6}" text-anchor="end">+2 h</text>
+</svg>`;
+}
+function updatePanel(){
+  const m=dispM(),pred=horizon>0;
+  STAGES.forEach(st=>{levels[st.id]=level(st,m);});
+  panel.classList.toggle('pred',pred);
+  for(const id in labels){const L=labels[id],st=STAGE_BY[id];L.dot.className='dot '+levels[id];L.v.textContent=st.short(m);}
+  const kp=panel.querySelector('[data-kpis]');
+  if(!selected){
+    kp.innerHTML=kpiHTML([[m.ordersHour,'/h','Órdenes entrando'],[m.pending,'','Órdenes en proceso'],[m.lastmile.otd,'%','Entregas a tiempo'],[m.lastmile.route,'','Vehículos en reparto']]);
+    STAGES.forEach(st=>{const v=panel.querySelector(`[data-sv="${st.id}"]`),d=panel.querySelector(`[data-dot="${st.id}"]`);if(v)v.textContent=st.short(m);if(d)d.className='dot '+levels[st.id];});
+    const cur=metrics(state);
+    const items=STAGES.map(st=>({st,tr:transitions(st,cur)})).filter(x=>x.tr&&x.tr.kind==='worse').sort((a,b)=>a.tr.in-b.tr.in);
+    const al=panel.querySelector('[data-alerts]');
+    al.innerHTML=items.length?items.map(({st,tr})=>`<li><button data-go="${st.id}"><span class="dot ${tr.lv}"></span><span><b>${st.name}</b> pasaría a ${LV_TXT[tr.lv].toLowerCase()} a las ${fmtTime(tr.t)}</span><span class="when">en ${tr.in} min</span></button></li>`).join(''):'<li class="empty">Sin alertas previstas. Probá un incidente para ver cómo reacciona la predicción.</li>';
+  }else{
+    const st=STAGE_BY[selected],lv=levels[selected];
+    panel.querySelector('[data-health]').innerHTML=`<span class="badge ${lv}">${pred?'Previsto: ':''}${LV_TXT[lv]}</span><span>${st.reason(m)}</span>`;
+    panel.querySelector('[data-chart]').innerHTML=chartSVG(st);
+    panel.querySelector('[data-insight]').textContent=insightText(st);
+    kp.innerHTML=kpiHTML(st.kpis(m));
+  }
+}
+panel.addEventListener('click',e=>{
+  const go=e.target.closest('[data-go]'),back=e.target.closest('[data-back]'),inc=e.target.closest('[data-inc]'),res=e.target.closest('[data-resolve]');
+  if(go)select(go.dataset.go);
+  else if(back)toOverview();
+  else if(inc){const kind=inc.dataset.inc,def=INCIDENTS[kind];if(kind==='trucks')state.trucksQueue+=5;else if(!state.inc.some(i=>i.kind===kind))state.inc.push({kind,until:state.t+def.dur});afterChange();}
+  else if(res){state.inc=state.inc.filter(i=>i.kind!==res.dataset.resolve);afterChange();}
+});
+function afterChange(){computeForecast();incKey=state.inc.map(i=>i.kind+i.until).join(',');renderIncidents();updatePanel();}
+
+function select(id){selected=id;flyTo(zoneBounds(STAGE_BY[id]));document.getElementById('overviewBtn').hidden=false;buildPanel();}
+function toOverview(){selected=null;flyTo(OVERVIEW);document.getElementById('overviewBtn').hidden=true;buildPanel();}
+document.getElementById('overviewBtn').addEventListener('click',toOverview);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&selected)toOverview();});
+
+// Velocidad y pausa
+document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b);});}));
+const pauseBtn=document.getElementById('pause');
+pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.textContent=paused?'Seguir':'Pausar';});
+
+// Línea de tiempo: mirar hacia adelante
+const hEl=document.getElementById('horizon'),banner=document.getElementById('banner'),tlTitle=document.getElementById('tlTitle'),tlSub=document.getElementById('tlSub'),tlNow=document.getElementById('tlNow');
+function setHorizon(v){
+  horizon=v;const pred=v>0;document.body.classList.toggle('predicting',pred);
+  banner.hidden=!pred;tlNow.disabled=!pred;
+  if(pred){const tt=fmtTime(state.t+v);banner.textContent=`Estás viendo la operación prevista para las ${tt}`;tlTitle.textContent=`Predicción para las ${tt}`;tlSub.textContent=`Dentro de ${v} min, si nada cambia`;}
+  else{tlTitle.textContent='Ahora';tlSub.textContent='Estado en vivo de la operación';}
+  updatePanel();lastPanel=performance.now();
+}
+hEl.addEventListener('input',()=>setHorizon(+hEl.value));
+tlNow.addEventListener('click',()=>{hEl.value=0;setHorizon(0);});
+setInterval(()=>{if(horizon>0){const tt=fmtTime(state.t+horizon);banner.textContent=`Estás viendo la operación prevista para las ${tt}`;tlTitle.textContent=`Predicción para las ${tt}`;}},500);
+
+clockEl.textContent=fmtTime(state.t);
+buildPanel();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

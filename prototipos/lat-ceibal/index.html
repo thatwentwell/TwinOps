@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LAT 500 kV Ceibal – Laguna Brava: gemelo operativo (prototipo)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DCE1E4; --surface:#F7F8F9; --surface-2:#ECEFF1; --ink:#1D2A33; --muted:#5B6870; --line:#CDD3D8;
+  --ok:#21946F; --warn:#D99A00; --crit:#D2453A; --future:#6A4FE0; --future-wash:rgba(106,79,224,.13);
+  --energy:#E58A00; --rain:#4F8FC0;
+  --scene-bg:#D5DCE1; --ground:#C9D2B6; --corridor:#D3D9C4; --road:#8E989F; --gravel:#BFB8A8; --river:#86B5D0; --pad:#C5CACD; --steel:#5F6B75;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#151C21; --surface:#1D262D; --surface-2:#253038; --ink:#E3E9ED; --muted:#93A1AA; --line:#34424C;
+    --ok:#3CC193; --warn:#F2B530; --crit:#F0675B; --future:#9C89FF; --future-wash:rgba(156,137,255,.15);
+    --energy:#FFC24A; --rain:#6FB0E0;
+    --scene-bg:#10171C; --ground:#1E2A22; --corridor:#25322A; --road:#3A454D; --gravel:#3B3934; --river:#244E68; --pad:#323C43; --steel:#A6B3BC;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151C21; --surface:#1D262D; --surface-2:#253038; --ink:#E3E9ED; --muted:#93A1AA; --line:#34424C;
+  --ok:#3CC193; --warn:#F2B530; --crit:#F0675B; --future:#9C89FF; --future-wash:rgba(156,137,255,.15);
+  --energy:#FFC24A; --rain:#6FB0E0;
+  --scene-bg:#10171C; --ground:#1E2A22; --corridor:#25322A; --road:#3A454D; --gravel:#3B3934; --river:#244E68; --pad:#323C43; --steel:#A6B3BC;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--future);outline-offset:2px}
+
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 384px;grid-template-rows:auto minmax(0,1fr) auto}
+.top{grid-column:1;grid-row:1;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand h1{margin:0;font:700 23px/1.1 'Barlow Semi Condensed','Barlow',sans-serif}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13.5px;max-width:64ch}
+.controls{display:flex;align-items:center;gap:18px}
+.clock{display:flex;flex-direction:column;align-items:flex-end}
+.clock-label{font-size:12px;color:var(--muted)}
+.clock-time{font:600 25px/1 'Barlow Semi Condensed',sans-serif;font-variant-numeric:tabular-nums}
+.speed{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.speed button{appearance:none;border:0;background:transparent;padding:7px 11px;cursor:pointer;border-right:1px solid var(--line);font-weight:500;font-variant-numeric:tabular-nums}
+.speed button:last-child{border-right:0}
+.speed button.on{background:var(--ink);color:var(--surface)}
+
+.stage{grid-column:1;grid-row:2;position:relative;overflow:hidden;background:var(--scene-bg);touch-action:none;user-select:none;-webkit-user-select:none}
+#c{display:block;width:100%;height:100%}
+.stage::after{content:'';position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .35s;box-shadow:inset 0 0 0 3px var(--future);background:radial-gradient(ellipse at center,transparent 50%,var(--future-wash))}
+.predicting .stage::after{opacity:1}
+.labels{position:absolute;inset:0;pointer-events:none}
+.zlabel{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 3px rgba(15,25,35,.14);appearance:none}
+.zlabel .v{font:500 13px 'Barlow Semi Condensed',sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
+.zlabel.compact .v{display:none}
+.zlabel.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
+.zlabel.drone{background:var(--ink);color:var(--surface);border-color:var(--ink);cursor:default;font-weight:500}
+.predicting .zlabel .v{color:var(--future)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}
+.dot.warn{background:var(--warn)}
+.dot.crit{background:var(--crit)}
+.dot.none{background:var(--line)}
+.future-banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);background:var(--future);color:#fff;font-weight:600;font-size:14px;padding:7px 15px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 8px rgba(40,20,120,.25)}
+.nav-hint{position:absolute;left:14px;bottom:12px;font-size:12.5px;color:var(--muted);background:var(--surface);opacity:.92;padding:5px 9px;border-radius:6px;pointer-events:none}
+.overview-btn{position:absolute;right:14px;top:14px;appearance:none;border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600}
+.toasts{position:absolute;left:14px;top:14px;display:flex;flex-direction:column;gap:8px;max-width:min(360px,calc(100% - 28px))}
+.toast{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--crit);border-radius:8px;padding:10px 12px;box-shadow:0 4px 14px rgba(15,25,35,.18)}
+.toast.warn{border-left-color:var(--warn)}
+.toast b{display:block;font-weight:600}
+.toast span{font-size:13.5px;color:var(--muted)}
+.toast button{appearance:none;flex:none;border:1px solid var(--line);background:var(--surface-2);border-radius:6px;padding:5px 10px;cursor:pointer;font-weight:600;margin-left:auto}
+@media (prefers-reduced-motion:no-preference){.toast{animation:tin .35s ease-out}}
+@keyframes tin{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+.timeline{grid-column:1;grid-row:3;display:flex;align-items:center;gap:22px;padding:12px 20px 14px;background:var(--surface);border-top:1px solid var(--line)}
+.tl-text{width:250px;flex:none;display:flex;flex-direction:column}
+.tl-text strong{font-size:16px;font-weight:600}
+.tl-text span{font-size:13px;color:var(--muted)}
+.predicting .tl-text strong{color:var(--future)}
+.tl-track{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tl-track input{width:100%;accent-color:var(--future);margin:0;height:24px;cursor:pointer}
+.tl-ticks{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.ghost{appearance:none;border:1px solid var(--line);background:transparent;border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:500}
+.ghost:disabled{opacity:.45;cursor:default}
+.primary{appearance:none;border:0;background:var(--ink);color:var(--surface);border-radius:7px;padding:8px 13px;cursor:pointer;font-weight:600}
+
+aside{grid-column:2;grid-row:1/4;background:var(--surface);border-left:1px solid var(--line);overflow-y:auto;padding:20px 22px 32px}
+aside h2{margin:0;font:700 27px/1.1 'Barlow Semi Condensed',sans-serif}
+aside h3{margin:26px 0 8px;font-size:15.5px;font-weight:600}
+aside .sub{margin:5px 0 16px;color:var(--muted)}
+aside .hint{margin:-2px 0 10px;color:var(--muted);font-size:14px}
+.back{appearance:none;border:0;background:none;padding:0;margin:0 0 12px;color:var(--muted);cursor:pointer;font-weight:500;text-decoration:underline;text-underline-offset:3px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
+.kpi{padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.kpi:nth-child(odd){padding-right:12px;border-right:1px solid var(--line)}
+.kpi:nth-child(even){padding-left:14px}
+.kpi .n{font:600 28px/1 'Barlow Semi Condensed',sans-serif;font-variant-numeric:tabular-nums}
+.kpi .n small{font-size:15px;font-weight:500;color:var(--muted);margin-left:3px}
+.kpi .l{font-size:13px;color:var(--muted);margin-top:5px}
+.pred .kpi .n{color:var(--future)}
+
+.mission{margin:0 0 10px}
+.funnel{display:flex;flex-direction:column;gap:7px}
+.frow{display:grid;grid-template-columns:150px 1fr 42px;align-items:center;gap:10px;font-size:14px}
+.fbar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden}
+.fbar i{display:block;height:100%;background:var(--ink);border-radius:4px;transition:width .3s}
+.frow:nth-child(2) .fbar i{opacity:.7}
+.frow:nth-child(3) .fbar i{opacity:.45}
+.fn{text-align:right;font:600 15px 'Barlow Semi Condensed',sans-serif;font-variant-numeric:tabular-nums}
+
+.inbox{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.inbox button{appearance:none;width:100%;display:grid;grid-template-columns:12px 1fr auto;align-items:center;gap:10px;padding:10px 2px;border:0;border-bottom:1px solid var(--line);background:none;cursor:pointer;text-align:left}
+.inbox button:hover{background:var(--surface-2)}
+.inbox .t{font-weight:600}
+.inbox .d{display:block;font-size:13.5px;color:var(--muted)}
+.chip{font-size:12.5px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--surface-2);white-space:nowrap}
+.chip.new{background:var(--crit);color:#fff}
+.chip.ot{background:var(--ink);color:var(--surface)}
+.chip.done{background:var(--ok);color:#fff}
+.chip.dis{color:var(--muted)}
+.inbox .empty{padding:10px 2px;color:var(--muted);border-bottom:1px solid var(--line)}
+.alerts{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.alerts li{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px}
+.alerts .dot{transform:translateY(1px)}
+.alerts .when{font:500 14px 'Barlow Semi Condensed',sans-serif;color:var(--future);white-space:nowrap}
+.alerts .empty{display:block;color:var(--muted)}
+
+.health{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);margin-bottom:16px}
+.badge{flex:none;font-weight:600;font-size:13px;padding:3px 9px;border-radius:5px;color:#fff;background:var(--ok)}
+.badge.warn{background:var(--warn);color:#1d1a10}
+.badge.crit{background:var(--crit)}
+.badge.none{background:var(--muted)}
+.pred .badge{box-shadow:0 0 0 2px var(--future)}
+
+.photo{margin:0 0 6px}
+.photo svg{display:block;width:100%;height:auto;border-radius:8px}
+.photo figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+.fcard{border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin-bottom:10px}
+.fcard.resolved,.fcard.discarded{opacity:.75}
+.fhead{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.fhead b{font-weight:600}
+.conf{font:600 14px 'Barlow Semi Condensed',sans-serif;color:var(--muted);white-space:nowrap}
+.fcard p{margin:4px 0 10px;font-size:14px;color:var(--muted)}
+.prio{font-size:14px;margin:0 0 10px;padding:8px 10px;border-radius:7px;background:var(--future-wash);color:var(--ink)}
+.prio b{color:var(--future)}
+.factions{display:flex;gap:8px;flex-wrap:wrap}
+.steps{list-style:none;margin:6px 0 0;padding:0}
+.steps li{position:relative;padding:0 0 10px 22px;font-size:14px;color:var(--muted)}
+.steps li::before{content:'';position:absolute;left:4px;top:5px;width:9px;height:9px;border-radius:50%;border:2px solid var(--line);background:var(--surface)}
+.steps li::after{content:'';position:absolute;left:9px;top:16px;bottom:-2px;width:2px;background:var(--line)}
+.steps li:last-child::after{display:none}
+.steps li.done{color:var(--ink)}
+.steps li.done::before{background:var(--ok);border-color:var(--ok)}
+.steps li.cur{color:var(--ink);font-weight:600}
+.steps li.cur::before{background:var(--surface);border-color:var(--ink);box-shadow:0 0 0 3px var(--surface-2)}
+.steps time{font:500 13.5px 'Barlow Semi Condensed',sans-serif;color:var(--muted);margin-left:6px;font-weight:500}
+
+.chart-cap{font-size:13.5px;font-weight:600;margin-bottom:4px}
+.chart svg{display:block;width:100%;height:auto}
+.c-past{fill:none;stroke:var(--ink);stroke-width:2;stroke-linejoin:round}
+.c-fut{fill:none;stroke:var(--future);stroke-width:2;stroke-dasharray:5 4;stroke-linejoin:round}
+.c-now{stroke:var(--muted);stroke-width:1}
+.c-ax{fill:var(--muted);font:500 11px 'Barlow',sans-serif}
+.c-warn{fill:var(--warn);opacity:.13}
+.c-crit{fill:var(--crit);opacity:.13}
+.c-rain{fill:var(--rain);opacity:.35}
+.c-pt{fill:var(--future)}
+.insight{margin:10px 0 18px;font-size:14.5px}
+.scen{display:flex;flex-direction:column;gap:8px}
+.inc-btn{appearance:none;text-align:left;border:1px dashed var(--muted);background:transparent;border-radius:7px;padding:9px 12px;cursor:pointer;font-weight:500}
+.inc-btn:hover{border-style:solid;background:var(--surface-2)}
+.inc-on{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:7px;background:var(--surface-2);border-left:3px solid var(--crit)}
+.inc-on b{font-weight:600;display:block}
+.inc-on span{font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){
+  .app{height:auto;min-height:100%;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 58vh auto auto}
+  aside{grid-column:1;grid-row:4;border-left:0;border-top:1px solid var(--line);overflow:visible}
+  .top{flex-wrap:wrap}
+  .brand p,.nav-hint,.clock-label{display:none}
+  .timeline{flex-wrap:wrap;gap:10px 16px}
+  .tl-text{width:auto;flex:1}
+  .tl-track{order:3;flex-basis:100%}
+  .frow{grid-template-columns:120px 1fr 38px}
+}
+@media (prefers-reduced-motion:reduce){.stage::after,.fbar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>LAT 500 kV Ceibal – Laguna Brava</h1>
+      <p>Gemelo operativo de la línea, con inspección por drones y detección por visión artificial. Prototipo con datos simulados.</p>
+    </div>
+    <div class="controls">
+      <div class="clock"><span class="clock-label">Hora de la operación</span><span class="clock-time" id="clock">09:40</span></div>
+      <div class="speed" role="group" aria-label="Velocidad de la simulación">
+        <button id="pause">Pausar</button>
+        <button data-speed="2" class="on" aria-pressed="true">1×</button>
+        <button data-speed="20" aria-pressed="false">10×</button>
+        <button data-speed="120" aria-pressed="false">60×</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <canvas id="c" role="img" aria-label="Modelo 3D isométrico de la línea de alta tensión, sus torres y las estaciones transformadoras"></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+    <div class="future-banner" id="banner" hidden></div>
+    <div class="nav-hint">Arrastrá para moverte, usá la rueda o pellizcá para hacer zoom y tocá una torre para entrar.</div>
+    <button class="overview-btn" id="overviewBtn" hidden>Vista general</button>
+  </main>
+
+  <section class="timeline" aria-label="Línea de tiempo">
+    <div class="tl-text"><strong id="tlTitle">Ahora</strong><span id="tlSub">Estado en vivo de la línea</span></div>
+    <div class="tl-track">
+      <input type="range" id="horizon" min="0" max="2880" step="30" value="0" aria-label="Mirar hacia adelante, en minutos">
+      <div class="tl-ticks" aria-hidden="true"><span>Ahora</span><span>+12 h</span><span>+24 h</span><span>+36 h</span><span>+48 h</span></div>
+    </div>
+    <button id="tlNow" class="ghost" disabled>Volver a ahora</button>
+  </section>
+
+  <aside id="panel"></aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ===SIM START===
+// El modelo es una función del tiempo: el estado (S) solo guarda decisiones y escenarios.
+const T0=9*60+40;
+const CAP_MW=1200,V_NOM=500;
+const NT=14;
+const TOWER_X=Array.from({length:NT},(_,i)=>-65+i*10);
+const TALL=new Set([6,7]);
+const PHASES=['R','S','T'],PHASE_Z=[-3,0,3];
+const towerName=i=>'T-'+String(i+1).padStart(2,'0');
+const hb=i=>TALL.has(i)?7:5;
+const ya=i=>hb(i)+2;
+const condY=i=>ya(i)-1.25;
+const FINDINGS=[
+  {id:'F1',tower:2,type:'nest',near:false,conf:0.91,known:true,desc:'Nido sobre la cúspide de la torre, a más de 2 m de los conductores.'},
+  {id:'F2',tower:4,type:'insulator',severity:'chip',phase:'T',conf:0.86,known:true,desc:'Un plato de la cadena de aisladores presenta una fisura.'},
+  {id:'F3',tower:8,type:'nest',near:true,phase:'S',conf:0.94,desc:'Nido sobre la ménsula, a menos de 1 m de la fase S. Riesgo de descarga a tierra con humedad.'},
+  {id:'F4',tower:10,type:'insulator',severity:'broken',phase:'R',conf:0.88,desc:'Falta un plato en la cadena de aisladores. La cadena trabaja con menos aislación.'},
+  {id:'F5',tower:11,type:'nest',near:false,conf:0.61,fp:true,desc:'Objeto en la base de la ménsula. La confianza es baja y conviene revisar la foto.'}
+];
+const FIND_BY=Object.fromEntries(FINDINGS.map(f=>[f.id,f]));
+const MISSION={start:T0+3,towers:[7,8,9,10,11,12],transit:6,inspect:12,photos:14,upload:4,process:7,base:[10,0.75,13.4]};
+const SLOT=MISSION.transit+MISSION.inspect;
+const MISSION_END=MISSION.start+MISSION.towers.length*SLOT,LAND=MISSION_END+8;
+const DEPOT_X=-84,ROAD_Z=12;
+const FRONT_V=160/480;
+
+const hod=t=>(((t%1440)+1440)%1440)/60;
+function inspWindow(j){const s=MISSION.start+j*SLOT+MISSION.transit;return[s,s+MISSION.inspect];}
+function photosCaptured(t){let n=0;MISSION.towers.forEach((_,j)=>{const[a,b]=inspWindow(j);n+=MISSION.photos*Math.max(0,Math.min(1,(t-a)/(b-a)));});return Math.floor(n+1e-9);}
+function detectedAt(f){if(f.known)return -Infinity;const j=MISSION.towers.indexOf(f.tower);if(j<0)return Infinity;const[a,b]=inspWindow(j);return(a+b)/2+MISSION.process;}
+function pipeline(t){return{cap:photosCaptured(t),up:photosCaptured(t-MISSION.upload),proc:photosCaptured(t-MISSION.process),total:MISSION.towers.length*MISSION.photos};}
+function missionStatus(t){
+  if(t<MISSION.start)return{phase:'pre'};
+  if(t>=LAND)return{phase:'done'};
+  if(t>=MISSION_END)return{phase:'return'};
+  const j=Math.floor((t-MISSION.start)/SLOT),inT=(t-MISSION.start)-j*SLOT;
+  return{phase:inT<MISSION.transit?'transit':'inspect',tower:MISSION.towers[j],j};
+}
+
+function initS(){return{t:T0,heat:null,front:{t:T0+600,I:0.85,early:false},ots:[],discarded:{},nextOt:1042};}
+function rainAt(S,t,x){const f=S.front;const xc=80-(t-f.t)*FRONT_V;const d=(x-xc)/FRONT_V;return f.I*Math.exp(-((d/120)**2));}
+function rainFrontX(S,t){return 80-(t-S.front.t)*FRONT_V;}
+function heatOn(S,t){return!!S.heat&&t>=S.heat.from&&t<S.heat.to;}
+function ambient(S,t){let a=24+8*Math.cos((hod(t)-15)/24*2*Math.PI);if(heatOn(S,t))a+=7;return a-4*rainAt(S,t,0);}
+function loadMW(S,t){const h=hod(t);let p=560+260*Math.exp(-(((h-15)/3)**2))+200*Math.exp(-(((h-21)/1.6)**2))-140*Math.exp(-(((h-4.5)/3)**2));if(heatOn(S,t))p*=1.28;return p;}
+function lineAt(S,t){
+  const mw=loadMW(S,t),pct=mw/CAP_MW,amb=ambient(S,t),rain=rainAt(S,t,0);
+  const tc=amb+62*pct*pct-9*rain,kv=V_NOM*(1.02-0.05*pct);
+  const amps=mw*1e6/(Math.sqrt(3)*kv*1e3*0.95);
+  return{t,mw,pct:pct*100,amb,tc,kv,amps,sag:1.5+Math.max(0,tc-35)*0.026};
+}
+function otOf(S,fid){return S.ots.find(o=>o.fid===fid);}
+function fixedAt(S,f){const o=otOf(S,f.id);return o?o.done:Infinity;}
+function activeFindings(S,i,t,know){return FINDINGS.filter(f=>f.tower===i&&detectedAt(f)<=know&&!S.discarded[f.id]&&fixedAt(S,f)>t);}
+function findingBase(f){if(f.type==='nest')return f.fp?12:(f.near?45:18);return f.severity==='broken'?50:22;}
+function towerAt(S,i,t,know,pct){
+  const fs=activeFindings(S,i,t,know),rain=rainAt(S,t,TOWER_X[i]);
+  let base=0;for(const f of fs)base+=findingBase(f);
+  let risk=base*(1+0.9*rain);if(base>0&&pct>85)risk+=8;
+  return{risk:Math.min(100,risk),rain,fs,pct};
+}
+function createOT(S,f,t){
+  const x=TOWER_X[f.tower],travel=25+Math.abs(x-DEPOT_X)*0.8,work=f.type==='nest'?50:90;
+  const o={id:'OT-'+(S.nextOt++),fid:f.id,tower:f.tower,crew:f.type==='nest'?'Cuadrilla 2':'Cuadrilla 4',created:t,arrive:t+travel,done:t+travel+work,back:t+2*travel+work};
+  S.ots.push(o);return o;
+}
+// ===SIM END===
+
+// ---------- Entidades, niveles y textos ----------
+const nf=v=>Math.round(v).toLocaleString('es-AR');
+const ENT=[...TOWER_X.map((x,i)=>({id:'t'+i,kind:'tower',i,name:'Torre '+towerName(i),short:towerName(i),x,bounds:[x-6,x+6,-7,8],ymax:ya(i)+2,
+            desc:TALL.has(i)?'Torre de cruce sobre el arroyo Las Garzas, más alta para dar altura libre sobre el agua.':(i===0||i===NT-1)?'Torre terminal de retención, junto a la estación transformadora.':'Torre de suspensión.'})),
+  {id:'etA',kind:'et',name:'ET Ceibal',short:'ET Ceibal',x:-80,bounds:[-92,-66,-11,14],ymax:8,desc:'Estación transformadora de origen. Desde acá sale la energía hacia Laguna Brava.'},
+  {id:'etB',kind:'et',name:'ET Laguna Brava',short:'ET Laguna Brava',x:80,bounds:[66,92,-11,14],ymax:8,desc:'Estación transformadora de llegada.'}];
+const ENT_BY=Object.fromEntries(ENT.map(e=>[e.id,e]));
+const LV_TXT={none:'Sin hallazgos',ok:'Normal',warn:'Atención',crit:'Crítico'};
+const LV_RANK={none:0,ok:0,warn:1,crit:2};
+const riskLevel=r=>r>=70?'crit':r>=40?'warn':'ok';
+function lineLevel(L){const a=L.pct>=95?2:L.pct>=80?1:0,b=L.tc>=90?2:L.tc>=80?1:0;return['ok','warn','crit'][Math.max(a,b)];}
+function findingTitle(f){
+  if(f.type==='nest')return f.fp?'Posible nido':f.near?`Nido cerca de la fase ${f.phase}`:'Nido lejos de los conductores';
+  return f.severity==='broken'?`Aislador roto en la fase ${f.phase}`:`Aislador fisurado en la fase ${f.phase}`;
+}
+const detLabel=f=>f.type==='nest'?(f.fp?'Posible nido':'Nido'):(f.severity==='broken'?'Aislador roto':'Aislador fisurado');
+
+const S=initS();
+function entAt(e,t,know){
+  const L=lineAt(S,t);
+  if(e.kind==='tower'){const r=towerAt(S,e.i,t,know,L.pct);return{...r,L,level:r.fs.length?riskLevel(r.risk):'none'};}
+  return{L,level:lineLevel(L)};
+}
+function entValue(e,m){return e.kind==='tower'?m.risk:m.L.pct;}
+function dayWord(t,ref){const d=Math.floor(t/1440)-Math.floor(ref/1440);return d===0?'':d===1?'mañana ':d===2?'pasado mañana ':d===-1?'ayer ':`día ${Math.floor(t/1440)+1}, `;}
+const hhmm=t=>{const m=Math.floor(((t%1440)+1440)%1440);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
+const fmtT=(t,ref=S.t)=>dayWord(t,ref)+hhmm(t);
+const atT=t=>`${dayWord(t,S.t)}a las ${hhmm(t)}`;
+const untilT=t=>dayWord(t,S.t)?`${dayWord(t,S.t)}a las ${hhmm(t)}`:`las ${hhmm(t)}`;
+const KNOWN_AT=T0-1060;
+function fmtDur(min){min=Math.round(min);if(min<60)return`${min} min`;const h=Math.floor(min/60),m=Math.round((min%60)/10)*10;return m&&m<60?`${h} h ${m} min`:`${h} h`;}
+function reasonText(e,m){
+  if(e.kind==='et')return lineLevel(m.L)==='ok'?`Carga al ${nf(m.L.pct)}% y conductor a ${nf(m.L.tc)} °C, dentro de los límites`:`Conductor a ${nf(m.L.tc)} °C con la línea cargada al ${nf(m.L.pct)}%`;
+  if(!m.fs.length)return'Sin hallazgos activos en la última inspección';
+  let s=m.fs.map(findingTitle).join(' y ');
+  if(m.rain>0.35)s+=', bajo lluvia';
+  if(m.pct>85)s+=` y con la línea al ${nf(m.pct)}%`;
+  return s;
+}
+function lastInspection(i,t){
+  const j=MISSION.towers.indexOf(i);
+  if(j>=0){const[a,b]=inspWindow(j);if(t>=b)return fmtT(b);if(t>=a)return'en curso';return'hace 15 días';}
+  return(i>=2&&i<=4)?'ayer':i===NT-1?'hace 20 días':'hace 12 días';
+}
+
+// ================= ESCENA 3D =================
+const stageEl=document.getElementById('stage'),canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const scene=new THREE.Scene();
+const cam=new THREE.OrthographicCamera(-1,1,1,-1,-400,700);
+const ISO=new THREE.Vector3(1,1,1).normalize();
+const R=new THREE.Vector3(1,0,-1).normalize(),U=new THREE.Vector3(-1,2,-1).normalize();
+const view={target:new THREE.Vector3(),H:40};
+const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const hemi=new THREE.HemisphereLight(0xffffff,0x8d979e,0.8);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffffff,0.6);
+sun.position.set(-50,90,40);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-110,right:110,top:110,bottom:-110,near:1,far:320});
+sun.shadow.bias=-0.0006;scene.add(sun,sun.target);
+
+const C={glass:0xA9C3D1,nest:0x7A5A3A,nestIn:0x5A4128,bird:0x2E3338,drone:0x2B3036,rotor:0x8A949C,van:0xF1F2F3,crew:0xE07B39,beacon:0xFFB020,trafo:0x6B767F,building:0xD9DDE0,footing:0xB4B9BC,tree:0x5E9A62,chassis:0x2B3036};
+const geoCache={},matCache={},M={};
+const boxGeo=(w,h,d)=>{const k=w+'|'+h+'|'+d;return geoCache[k]||(geoCache[k]=new THREE.BoxGeometry(w,h,d));};
+const lam=c=>matCache[c]||(matCache[c]=new THREE.MeshLambertMaterial({color:c}));
+['ground','corridor','road','gravel','river','pad','steel'].forEach(n=>M[n]=new THREE.MeshLambertMaterial());
+M.steelLine=new THREE.LineBasicMaterial();
+function add(parent,geo,mat,x,y,z,cast=true){const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=cast;m.receiveShadow=true;parent.add(m);return m;}
+function boxOn(parent,w,h,d,mat,x,base,z,cast=true){return add(parent,boxGeo(w,h,d),mat,x,base+h/2,z,cast);}
+const dummy=new THREE.Object3D();
+function inst(geo,mat,pos,shadow=true){const im=new THREE.InstancedMesh(geo,mat,pos.length);pos.forEach((p,i)=>{dummy.position.set(p[0],p[1],p[2]);dummy.rotation.set(0,p[3]||0,0);dummy.scale.set(p[5]||1,p[6]||1,p[7]||1);dummy.updateMatrix();im.setMatrixAt(i,dummy.matrix);});im.castShadow=shadow;im.receiveShadow=true;scene.add(im);return im;}
+let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
+
+// Terreno: campo, franja de servidumbre, arroyo, ruta, camino de servicio
+const ground=add(scene,new THREE.PlaneGeometry(600,320),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
+const fieldPos=[],FIELD_TINT=[0xB8C77A,0xD9C98A,0x9FB58A,0xC9B98E,0xA9BF7E];
+for(let x=-150;x<=150;x+=17)for(const band of[[-70,-9],[9,70]]){for(let z=band[0];z<band[1]-6;z+=0){const d=8+rnd()*10,zz=Math.min(z+d,band[1]);if(Math.abs(x)>5&&Math.abs(x+40)>4&&!(Math.abs(Math.abs(x)-80)<12&&zz>-14&&z<14)&&rnd()<0.8)fieldPos.push([x+rnd()*1.5,0.012,(z+zz)/2,0,FIELD_TINT[Math.floor(rnd()*5)],15.2,1,zz-z-1]);z=zz+0.001;if(zz>=band[1])break;}}
+const fields=inst(boxGeo(1,0.02,1),new THREE.MeshLambertMaterial(),fieldPos,false);
+boxOn(scene,200,0.02,14,M.corridor,0,0,0,false);
+boxOn(scene,6,0.05,320,M.river,0,0,0,false);
+boxOn(scene,3,0.06,320,M.road,-40,0,0,false);
+boxOn(scene,190,0.04,2.4,M.gravel,0,0,ROAD_Z,false);
+boxOn(scene,7,0.35,3,lam(0x9AA3A8),0,0,ROAD_Z);
+const treePos=[];
+for(let n=0;n<170;n++){const x=-140+rnd()*280,z=(rnd()<0.5?-1:1)*(10+rnd()*55);if(Math.abs(x)<5||Math.abs(x+40)<3||Math.abs(z-ROAD_Z)<2.5)continue;if(Math.abs(Math.abs(x)-80)<11&&Math.abs(z)<15)continue;const s=0.8+rnd()*0.6;treePos.push([x,0.9*s,z,0,undefined,s,s,s]);}
+inst(new THREE.ConeGeometry(0.85,1.8,7),lam(C.tree),treePos);
+
+// Torres reticuladas (líneas) + fundaciones + aros de salud + volúmenes de click
+function latticeGeo(h){
+  const top=h+2,b0=1.3,b1=0.45,n=5,P=[];const L=(a,b)=>P.push(a[0],a[1],a[2],b[0],b[1],b[2]);
+  const lv=k=>({y:h*k/n,w:b0+(b1-b0)*k/n});
+  for(let k=0;k<n;k++){const A=lv(k),B=lv(k+1);
+    const cA=[[A.w,A.w],[A.w,-A.w],[-A.w,-A.w],[-A.w,A.w]],cB=[[B.w,B.w],[B.w,-B.w],[-B.w,-B.w],[-B.w,B.w]];
+    for(let c=0;c<4;c++){const c2=(c+1)%4;
+      L([cA[c][0],A.y,cA[c][1]],[cB[c][0],B.y,cB[c][1]]);
+      L([cB[c][0],B.y,cB[c][1]],[cB[c2][0],B.y,cB[c2][1]]);
+      L([cA[c][0],A.y,cA[c][1]],[cB[c2][0],B.y,cB[c2][1]]);
+      L([cA[c2][0],A.y,cA[c2][1]],[cB[c][0],B.y,cB[c][1]]);}}
+  for(const sx of[-1,1])for(const sz of[-1,1])L([sx*b1,h,sz*b1],[sx*0.35,top,sz*1.9]);
+  for(const sx of[-1,1])L([sx*0.35,top,-3.6],[sx*0.35,top,3.6]);
+  for(let z=-3.6;z<3.55;z+=0.9){L([-0.35,top,z],[0.35,top,z]);L([-0.35,top,z],[0.35,top,z+0.9]);}
+  L([-0.35,top,3.6],[0.35,top,3.6]);
+  for(const sz of[-1.9,1.9]){L([-0.3,top,sz],[0,top+1.3,sz]);L([0.3,top,sz],[0,top+1.3,sz]);L([0,top,sz],[0,top+1.3,sz]);}
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(P,3));return g;
+}
+const latN=latticeGeo(5),latT=latticeGeo(7);
+const footPos=[];const rings=[];const hitBoxes=[];
+const hitMat=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
+const ringGeo=new THREE.RingGeometry(1.95,2.45,40);
+TOWER_X.forEach((x,i)=>{
+  const ls=new THREE.LineSegments(TALL.has(i)?latT:latN,M.steelLine);ls.position.set(x,0,0);scene.add(ls);
+  for(const sx of[-1,1])for(const sz of[-1,1])footPos.push([x+sx*1.3,0.12,sz*1.3]);
+  const rm=new THREE.Mesh(ringGeo,new THREE.MeshBasicMaterial({transparent:true,opacity:0.9,depthWrite:false}));rm.rotation.x=-Math.PI/2;rm.position.set(x,0.05,0);scene.add(rm);rings.push(rm);
+  const hb_=add(scene,boxGeo(5,ya(i)+2,9),hitMat,x,(ya(i)+2)/2,0,false);hb_.receiveShadow=false;hb_.userData.id='t'+i;hitBoxes.push(hb_);
+});
+inst(boxGeo(0.6,0.24,0.6),lam(C.footing),footPos);
+
+// Cadenas de aisladores: 7 platos por fase
+const DISCS=7;const discPos=[];
+TOWER_X.forEach((x,i)=>PHASE_Z.forEach(z=>{for(let k=0;k<DISCS;k++)discPos.push([x,ya(i)-0.2-k*0.15,z]);}));
+const discs=inst(new THREE.CylinderGeometry(0.2,0.2,0.07,12),new THREE.MeshLambertMaterial(),discPos,false);
+discPos.forEach((_,k)=>discs.setColorAt(k,new THREE.Color(C.glass)));discs.instanceColor.needsUpdate=true;
+const discIdx=(i,p,k)=>(i*3+p)*DISCS+k;
+
+// Estaciones transformadoras
+function buildET(cx,dir,id){
+  boxOn(scene,16,0.06,16,M.pad,cx,0,0,false);
+  const fence=new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo(16,1.2,16)),M.steelLine);fence.position.set(cx,0.6,0);scene.add(fence);
+  [-4,0,4].forEach(z=>{boxOn(scene,2,1.8,1.5,lam(C.trafo),cx-dir*3.5,0.06,z);for(const dz of[-0.45,0,0.45])add(scene,new THREE.CylinderGeometry(0.09,0.12,0.8,8),lam(0xC9D2D8),cx-dir*3.5,2.25,z+dz);});
+  boxOn(scene,3,2.2,2.6,lam(C.building),cx-dir*1,0.06,5.6);
+  const gx=cx+dir*7;
+  for(const z of[-4.3,4.3])boxOn(scene,0.35,7.2,0.35,M.steel,gx,0,z);
+  boxOn(scene,0.4,0.35,9,M.steel,gx,6.9,0);
+  for(let k=0;k<3;k++)boxOn(scene,0.2,1.8,0.2,M.steel,cx+dir*2.5,0.06,PHASE_Z[k]);
+  const hb_=add(scene,boxGeo(16,6,16),hitMat,cx,3,0,false);hb_.receiveShadow=false;hb_.userData.id=id;hitBoxes.push(hb_);
+}
+buildET(-80,1,'etA');buildET(80,-1,'etB');
+
+// Conductores: catenarias que cambian de flecha con la temperatura
+const ATT_X=[-73,...TOWER_X,73];
+const ATT_Y=[5.75,...TOWER_X.map((_,i)=>condY(i)),5.75];
+const GW_X=TOWER_X,GW_Y=TOWER_X.map((_,i)=>ya(i)+1.3);
+function catY(xs,ys,x,sag){
+  let k=0;while(k<xs.length-2&&x>xs[k+1])k++;
+  const x0=xs[k],x1=xs[k+1],t=Math.max(0,Math.min(1,(x-x0)/(x1-x0))),L=(x1-x0)/10;
+  return ys[k]+(ys[k+1]-ys[k])*t-sag*L*L*4*t*(1-t);
+}
+const SEG=16;
+function makeWire(xs,mat){const n=(xs.length-1)*SEG+1;const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(n*3),3));const l=new THREE.Line(g,mat);l.frustumCulled=false;scene.add(l);return l;}
+const wireMat=new THREE.LineBasicMaterial({color:0x3A4249});
+const phaseWires=PHASE_Z.map(()=>makeWire(ATT_X,wireMat));
+const gwWires=[-1.9,1.9].map(()=>makeWire(GW_X,wireMat));
+function setWire(line,xs,ys,z,sag){const a=line.geometry.attributes.position;let n=0;for(let s=0;s<xs.length-1;s++)for(let k=0;k<SEG||(s===xs.length-2&&k===SEG);k++){const x=xs[s]+(xs[s+1]-xs[s])*k/SEG;a.setXYZ(n++,x,catY(xs,ys,x,sag),z);if(k===SEG)break;}a.needsUpdate=true;}
+let lastSag=-1;
+function updateWires(sag){if(Math.abs(sag-lastSag)<0.01)return;lastSag=sag;phaseWires.forEach((w,p)=>setWire(w,ATT_X,ATT_Y,PHASE_Z[p],sag));gwWires.forEach((w,k)=>setWire(w,GW_X,GW_Y,k?1.9:-1.9,1.2));}
+
+// Pulsos de energía sobre las fases
+const PULSES=36;
+const pulseMat=new THREE.MeshBasicMaterial({color:0xE58A00});
+const pulseIM=new THREE.InstancedMesh(new THREE.SphereGeometry(0.15,8,6),pulseMat,PULSES*3);pulseIM.frustumCulled=false;scene.add(pulseIM);
+let pulseU=0;
+
+// Nidos y aves
+function nestPos(f){const x=TOWER_X[f.tower],i=f.tower;if(f.fp)return[x,hb(i)+0.15,0];if(f.near)return[x,ya(i)+0.18,-0.75];return[x,ya(i)+1.42,1.9];}
+const nests={};
+FINDINGS.filter(f=>f.type==='nest').forEach(f=>{const g=new THREE.Group();const p=nestPos(f);
+  if(f.fp){add(g,new THREE.SphereGeometry(0.32,8,6),lam(0xE8E4DA),0,0.1,0);}
+  else{add(g,new THREE.TorusGeometry(0.34,0.14,6,12),lam(C.nest),0,0,0).rotation.x=Math.PI/2;add(g,new THREE.CylinderGeometry(0.3,0.25,0.12,10),lam(C.nestIn),0,-0.02,0);}
+  g.position.set(p[0],p[1],p[2]);g.visible=false;scene.add(g);nests[f.id]=g;});
+function makeBird(){const g=new THREE.Group();const wm=lam(C.bird);const l=add(g,boxGeo(0.55,0.03,0.18),wm,-0.27,0,0,false),r=add(g,boxGeo(0.55,0.03,0.18),wm,0.27,0,0,false);add(g,boxGeo(0.12,0.08,0.3),wm,0,0,0,false);g.userData={l,r};g.visible=false;scene.add(g);return g;}
+const birds=Array.from({length:8},makeBird);
+
+// Dron y su base
+const droneBaseVan=new THREE.Group();boxOn(droneBaseVan,2.9,0.3,1.3,lam(C.chassis),0,0.12,0);boxOn(droneBaseVan,2.0,1.35,1.42,lam(C.van),-0.4,0.4,0);boxOn(droneBaseVan,0.85,0.95,1.42,lam(0x2F5D8C),1.0,0.4,0);droneBaseVan.position.set(MISSION.base[0]-2.4,0.04,MISSION.base[2]);scene.add(droneBaseVan);
+boxOn(scene,1.4,0.05,1.4,lam(0x3A4249),MISSION.base[0],0.04,MISSION.base[2],false);
+const drone=new THREE.Group();
+boxOn(drone,0.5,0.16,0.5,lam(C.drone),0,-0.08,0);
+const rotors=[];for(const sx of[-1,1])for(const sz of[-1,1]){boxOn(drone,0.5,0.05,0.06,lam(C.drone),sx*0.25,0,sz*0.25).rotation.y=sx*sz*Math.PI/4;const r=add(drone,new THREE.CylinderGeometry(0.26,0.26,0.02,14),new THREE.MeshLambertMaterial({color:C.rotor,transparent:true,opacity:0.6}),sx*0.42,0.06,sz*0.42,false);rotors.push(r);}
+const flash=add(drone,new THREE.SphereGeometry(0.16,10,8),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0}),0,-0.2,0,false);
+scene.add(drone);
+let dronePrev=null;
+function orbitPt(j,frac){const i=MISSION.towers[j];const a=-Math.PI/2+frac*2*Math.PI;return[TOWER_X[i]+4.3*Math.cos(a),ya(i)+1.5,4.3*Math.sin(a)];}
+function arcLerp(a,b,k){k=Math.max(0,Math.min(1,k));const e=k*k*(3-2*k);return[a[0]+(b[0]-a[0])*e,a[1]+(b[1]-a[1])*e+Math.sin(Math.PI*k)*2,a[2]+(b[2]-a[2])*e];}
+function droneAt(t){
+  const B=MISSION.base;
+  if(t<MISSION.start||t>=LAND)return{p:B,flying:false,flash:0};
+  if(t>=MISSION_END)return{p:arcLerp(orbitPt(MISSION.towers.length-1,1),B,(t-MISSION_END)/8),flying:true,flash:0};
+  const j=Math.floor((t-MISSION.start)/SLOT),inT=(t-MISSION.start)-j*SLOT;
+  if(inT<MISSION.transit)return{p:arcLerp(j===0?B:orbitPt(j-1,1),orbitPt(j,0),inT/MISSION.transit),flying:true,flash:0};
+  const frac=(inT-MISSION.transit)/MISSION.inspect,ph=frac*MISSION.photos;
+  return{p:orbitPt(j,frac),flying:true,flash:Math.max(0,1-(ph%1)*5),tower:MISSION.towers[j]};
+}
+
+// Camionetas de cuadrilla
+function makeCrew(){const g=new THREE.Group();boxOn(g,2.6,0.3,1.2,lam(C.chassis),0,0.12,0);boxOn(g,1.1,0.95,1.25,lam(C.crew),0.6,0.4,0);boxOn(g,1.3,0.45,1.25,lam(C.van),-0.6,0.4,0);
+  const b=add(g,new THREE.SphereGeometry(0.13,8,6),new THREE.MeshBasicMaterial({color:C.beacon}),0.6,1.45,0,false);g.userData.beacon=b;g.visible=false;scene.add(g);return g;}
+const crews=Array.from({length:5},makeCrew);
+
+// Lluvia y nubes
+const RAIN_N=700;
+const rainMat=new THREE.MeshBasicMaterial({color:0x4F8FC0,transparent:true,opacity:0.55,depthWrite:false});
+const rainIM=new THREE.InstancedMesh(boxGeo(0.05,0.9,0.05),rainMat,RAIN_N);rainIM.frustumCulled=false;rainIM.count=0;scene.add(rainIM);
+const drops=Array.from({length:RAIN_N},()=>({x:0,y:-1,z:0}));
+const cloudMat=new THREE.MeshLambertMaterial({color:0x8B949B,transparent:true,opacity:0.85,depthWrite:false});
+const clouds=Array.from({length:9},(_,k)=>{const m=new THREE.Mesh(new THREE.SphereGeometry(1,14,10),cloudMat);m.scale.set(7+rnd()*4,1.4,4+rnd()*3);m.userData={dx:(k-4)*11+rnd()*4,dz:-14+rnd()*28};m.visible=false;scene.add(m);return m;});
+
+// ---------- Tema ----------
+const healthCol={ok:new THREE.Color(),warn:new THREE.Color(),crit:new THREE.Color(),none:new THREE.Color()};
+let futureCol=new THREE.Color();
+function applyTheme(){
+  const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
+  scene.background=new THREE.Color(g('--scene-bg'));
+  ['ground','corridor','road','gravel','river','pad','steel'].forEach(n=>M[n].color.set(g('--'+n)));
+  M.steelLine.color.set(g('--steel'));wireMat.color.set(g('--steel'));
+  healthCol.ok.set(g('--ok'));healthCol.warn.set(g('--warn'));healthCol.crit.set(g('--crit'));healthCol.none.set(g('--steel'));
+  futureCol=new THREE.Color(g('--future'));pulseMat.color.set(g('--energy'));rainMat.color.set(g('--rain'));
+  const gc=new THREE.Color(g('--ground'));
+  fieldPos.forEach((p,k)=>fields.setColorAt(k,gc.clone().lerp(new THREE.Color(p[4]),0.38)));fields.instanceColor.needsUpdate=true;
+  const dark=gc.getHSL({}).l<0.3;hemi.intensity=dark?0.55:0.8;sun.intensity=dark?0.5:0.6;cloudMat.color.set(dark?0x56606A:0x8B949B);
+}
+applyTheme();
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',applyTheme);
+
+// ---------- Cámara isométrica ----------
+function updateCam(){const w=stageEl.clientWidth,h=stageEl.clientHeight,a=w/Math.max(1,h);cam.left=-view.H*a;cam.right=view.H*a;cam.top=view.H;cam.bottom=-view.H;cam.position.copy(view.target).addScaledVector(ISO,250);cam.lookAt(view.target);cam.updateProjectionMatrix();}
+function fitTarget([x0,x1,z0,z1],ymax=6,margin=1.1){
+  const w=stageEl.clientWidth,h=stageEl.clientHeight,a=w/Math.max(1,h);let sx0=1e9,sx1=-1e9,sy0=1e9,sy1=-1e9;const p=new THREE.Vector3();
+  for(const x of[x0,x1])for(const z of[z0,z1])for(const y of[0,ymax]){p.set(x,y,z);const sx=p.dot(R),sy=p.dot(U);sx0=Math.min(sx0,sx);sx1=Math.max(sx1,sx);sy0=Math.min(sy0,sy);sy1=Math.max(sy1,sy);}
+  const H=Math.max((sy1-sy0)/2,(sx1-sx0)/2/a)*margin;
+  return{target:new THREE.Vector3().addScaledVector(R,(sx0+sx1)/2).addScaledVector(U,(sy0+sy1)/2),H:Math.min(110,Math.max(5,H))};
+}
+const OVERVIEW=[-92,92,-14,16];
+let tween=null;
+function flyTo(b,ymax){const f=fitTarget(b,ymax);tween={t0:performance.now(),dur:reduced?0:850,fromT:view.target.clone(),fromH:view.H,toT:f.target,toH:f.H};}
+function tweenStep(now){if(!tween)return;const k=tween.dur?Math.min(1,(now-tween.t0)/tween.dur):1;const e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;view.target.lerpVectors(tween.fromT,tween.toT,e);view.H=tween.fromH+(tween.toH-tween.fromH)*e;updateCam();if(k>=1)tween=null;}
+function zoomAt(px,py,f){const w=stageEl.clientWidth,h=stageEl.clientHeight,wpp=2*view.H/h;const nH=Math.min(110,Math.max(5,view.H*f)),k=1-nH/view.H;view.target.addScaledVector(R,(px-w/2)*wpp*k).addScaledVector(U,-(py-h/2)*wpp*k);view.H=nH;updateCam();}
+function resize(){renderer.setSize(stageEl.clientWidth,stageEl.clientHeight,false);updateCam();}
+new ResizeObserver(resize).observe(stageEl);
+resize();
+{const f=fitTarget(OVERVIEW,10);view.target.copy(f.target);view.H=f.H;updateCam();}
+
+const raycaster=new THREE.Raycaster(),ndc=new THREE.Vector2();
+function pick(cx,cy){const r=canvas.getBoundingClientRect();ndc.set(((cx-r.left)/r.width)*2-1,-((cy-r.top)/r.height)*2+1);raycaster.setFromCamera(ndc,cam);const hit=raycaster.intersectObjects(hitBoxes,false)[0];return hit?hit.object.userData.id:null;}
+const pointers=new Map();let moved=0,pinch=null;
+const pdist=()=>{const[a,b]=[...pointers.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
+stageEl.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;stageEl.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=0;tween=null;if(pointers.size===2)pinch={d:pdist(),H:view.H};});
+stageEl.addEventListener('pointermove',e=>{
+  const p=pointers.get(e.pointerId);
+  if(!p){if(e.pointerType==='mouse')canvas.style.cursor=pick(e.clientX,e.clientY)?'pointer':'grab';return;}
+  const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
+  if(pointers.size===1){const wpp=2*view.H/stageEl.clientHeight;view.target.addScaledVector(R,-dx*wpp).addScaledVector(U,dy*wpp);moved+=Math.abs(dx)+Math.abs(dy);updateCam();}
+  else if(pointers.size===2&&pinch){view.H=Math.min(110,Math.max(5,pinch.H*pinch.d/Math.max(1,pdist())));moved+=10;updateCam();}
+});
+function endPointer(e){if(!pointers.has(e.pointerId))return;if(pointers.size===1&&moved<6&&e.type==='pointerup'){const id=pick(e.clientX,e.clientY);if(id)select(id);}pointers.delete(e.pointerId);if(pointers.size<2)pinch=null;}
+stageEl.addEventListener('pointerup',endPointer);stageEl.addEventListener('pointercancel',endPointer);
+stageEl.addEventListener('wheel',e=>{e.preventDefault();tween=null;const r=stageEl.getBoundingClientRect();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(e.deltaY*0.0012));},{passive:false});
+
+// ---------- Etiquetas ----------
+const labelsEl=document.getElementById('labels');const labels={};
+ENT.forEach(e=>{const b=document.createElement('button');b.className='zlabel';b.innerHTML=`<span class="dot"></span><span>${e.short}</span><span class="v"></span>`;b.addEventListener('click',()=>select(e.id));labelsEl.appendChild(b);
+  labels[e.id]={el:b,dot:b.querySelector('.dot'),v:b.querySelector('.v'),anchor:new THREE.Vector3(e.x,e.kind==='tower'?ya(e.i)+2.6:4.5,e.kind==='tower'?-1:-6),e};});
+const droneLabel=document.createElement('div');droneLabel.className='zlabel drone';droneLabel.textContent='Dron D-2';labelsEl.appendChild(droneLabel);
+const tmpV=new THREE.Vector3();
+function place(el,v){const w=stageEl.clientWidth,h=stageEl.clientHeight;tmpV.copy(v).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-80||x>w+80||y<-20||y>h+40;el.style.display=off?'none':'flex';if(!off)el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%)`;}
+function positionLabels(){
+  const close=view.H<24;
+  for(const id in labels){const L=labels[id],e=L.e;const lv=levels[id]||'none';
+    const show=e.kind==='et'||selected===id||close||lv==='warn'||lv==='crit';
+    if(!show){L.el.style.display='none';continue;}
+    place(L.el,L.anchor);L.el.classList.toggle('compact',view.H>45);L.el.classList.toggle('sel',selected===id);}
+  if(droneVis.flying){place(droneLabel,tmpDrone.set(drone.position.x,drone.position.y+1.1,drone.position.z));}else droneLabel.style.display='none';
+}
+const tmpDrone=new THREE.Vector3();
+
+// ================= LOOP =================
+let speed=2,paused=false,horizon=0,selected=null,last=performance.now(),animT=0,lastPanel=0;
+let levels={};let droneVis={flying:false};let notified=new Set(FINDINGS.filter(f=>f.known).map(f=>f.id));
+const kf=(dt,rate)=>1-Math.exp(-dt*rate);
+let lastDamageKey='';
+
+function animateScene(tD,know,dt){
+  const run=paused?0:1;animT+=dt;
+  const L=lineAt(S,tD);
+  updateWires(L.sag);
+  // Pulsos de energía
+  pulseU=(pulseU+dt*run*0.02*(0.35+L.pct/100))%1;
+  const active=Math.round(PULSES*Math.min(1,0.25+L.pct/100*0.9));
+  for(let p=0;p<3;p++)for(let k=0;k<PULSES;k++){const idx=p*PULSES+k;
+    if(k>=active){dummy.scale.setScalar(0);}else{const u=(pulseU+k/active+p*0.013)%1,x=-73+u*146;dummy.position.set(x,catY(ATT_X,ATT_Y,x,L.sag),PHASE_Z[p]);dummy.scale.setScalar(1);}
+    dummy.rotation.set(0,0,0);dummy.updateMatrix();pulseIM.setMatrixAt(idx,dummy.matrix);}
+  pulseIM.instanceMatrix.needsUpdate=true;
+  // Aros de salud por torre
+  const pk=reduced?1:0.7+0.3*Math.sin(animT*5);
+  rings.forEach((r,i)=>{const lv=levels['t'+i]||'none';r.material.color.copy(healthCol[lv]);r.material.opacity=lv==='none'?0.35:0.95;if(lv==='crit')r.material.color.multiplyScalar(pk);if(horizon>0)r.material.color.lerp(futureCol,0.25);});
+  // Nidos, aves y aisladores según lo que se sabe
+  const vis=f=>detectedAt(f)<=know&&!S.discarded[f.id]&&fixedAt(S,f)>tD;
+  let b=0;
+  FINDINGS.forEach(f=>{if(f.type==='nest'){const v=vis(f);nests[f.id].visible=v;
+    if(v&&!f.fp)for(let q=0;q<2&&b<birds.length;q++,b++){const g=birds[b],p=nestPos(f),a=animT*(0.6+q*0.25)+q*Math.PI+f.tower;g.visible=true;g.position.set(p[0]+Math.cos(a)*(2.2+q),p[1]+1.6+Math.sin(animT*1.3+q)*0.4,p[2]+Math.sin(a)*(2.2+q));g.rotation.y=-a;const fl=Math.sin(animT*12+q)*0.5;g.userData.l.rotation.z=fl;g.userData.r.rotation.z=-fl;}}});
+  for(;b<birds.length;b++)birds[b].visible=false;
+  const dmg=FINDINGS.filter(f=>f.type==='insulator'&&vis(f));const dk=dmg.map(f=>f.id).join(',');
+  if(dk!==lastDamageKey){lastDamageKey=dk;const glass=new THREE.Color(C.glass);
+    for(let k=0;k<discPos.length;k++){discs.setColorAt(k,glass);dummy.position.set(discPos[k][0],discPos[k][1],discPos[k][2]);dummy.rotation.set(0,0,0);dummy.scale.setScalar(1);dummy.updateMatrix();discs.setMatrixAt(k,dummy.matrix);}
+    dmg.forEach(f=>{const p=PHASES.indexOf(f.phase);for(let k=0;k<DISCS;k++)discs.setColorAt(discIdx(f.tower,p,k),f.severity==='broken'?healthCol.crit:healthCol.warn);
+      if(f.severity==='broken'){const k=discIdx(f.tower,p,4);dummy.position.set(discPos[k][0],discPos[k][1],discPos[k][2]);dummy.scale.setScalar(0);dummy.updateMatrix();discs.setMatrixAt(k,dummy.matrix);}});
+    discs.instanceColor.needsUpdate=true;discs.instanceMatrix.needsUpdate=true;}
+  // Dron
+  const d=droneAt(tD);droneVis=d;
+  drone.position.set(d.p[0],d.p[1],d.p[2]);
+  if(dronePrev){const dx=d.p[0]-dronePrev[0],dz=d.p[2]-dronePrev[2];if(Math.hypot(dx,dz)>0.002)drone.rotation.y=Math.atan2(-dz,dx);}
+  dronePrev=d.p.slice();
+  rotors.forEach((r,k)=>r.rotation.y+=d.flying?dt*40*(k%2?1:-1):0);
+  flash.material.opacity=d.flash*0.95;flash.scale.setScalar(1+d.flash*1.5);
+  // Cuadrillas
+  crews.forEach(c=>c.visible=false);
+  S.ots.forEach((o,k)=>{if(k>=crews.length)return;const c=crews[k],tx=TOWER_X[o.tower];let x;
+    if(tD<o.created||tD>=o.back)return;
+    if(tD<o.arrive){x=DEPOT_X+(tx-DEPOT_X)*(tD-o.created)/(o.arrive-o.created);c.rotation.y=tx>DEPOT_X?0:Math.PI;}
+    else if(tD<o.done){x=tx-2.5;c.rotation.y=0;}
+    else{x=tx+(DEPOT_X-tx)*(tD-o.done)/(o.back-o.done);c.rotation.y=Math.PI;}
+    c.visible=true;c.position.set(x,0.05,ROAD_Z+(k%2?0.6:-0.6));c.userData.beacon.visible=tD>=o.arrive&&tD<o.done&&Math.sin(animT*8)>0;});
+  // Lluvia
+  const xc=rainFrontX(S,tD);let imax=0;for(let x=-100;x<=100;x+=10)imax=Math.max(imax,rainAt(S,tD,x));
+  const want=imax<0.08?0:Math.round(RAIN_N*Math.min(1,imax));
+  for(let k=0;k<want;k++){const q=drops[k];q.y-=dt*26;if(q.y<0){for(let tries=0;tries<6;tries++){q.x=xc-80+rnd()*160;if(rnd()<rainAt(S,tD,q.x)/Math.max(0.01,S.front.I))break;}q.z=-30+rnd()*60;q.y=12+rnd()*6;}
+    dummy.position.set(q.x,q.y,q.z);dummy.rotation.set(0,0,0);dummy.scale.setScalar(1);dummy.updateMatrix();rainIM.setMatrixAt(k,dummy.matrix);}
+  rainIM.count=want;rainIM.instanceMatrix.needsUpdate=true;
+  clouds.forEach(m=>{const x=xc+m.userData.dx;const r=rainAt(S,tD,x);m.visible=r>0.12&&Math.abs(x)<150;m.position.set(x,17,m.userData.dz);});
+  cloudMat.opacity=0.85;
+  hemi.color.set(horizon>0?0xE2DBFF:0xffffff);
+}
+
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000);last=now;
+  if(!paused)S.t+=dt*speed;
+  tweenStep(now);
+  checkDetections();
+  const tD=S.t+horizon;
+  if(now-lastPanel>250){updatePanel();lastPanel=now;clockEl.textContent=hhmm(S.t);if(horizon>0)updateHorizonText();}
+  animateScene(tD,S.t,dt);
+  positionLabels();
+  renderer.render(scene,cam);
+  requestAnimationFrame(frame);
+}
+
+// ---------- Avisos de hallazgos nuevos ----------
+const toastsEl=document.getElementById('toasts');
+function checkDetections(){
+  FINDINGS.forEach(f=>{if(notified.has(f.id)||detectedAt(f)>S.t)return;notified.add(f.id);
+    const el=document.createElement('div');el.className='toast'+(f.near||f.severity==='broken'?'':' warn');
+    el.innerHTML=`<div><b>Nuevo hallazgo en ${towerName(f.tower)}</b><span>${findingTitle(f)}, ${Math.round(f.conf*100)}% de confianza del modelo.</span></div><button>Ver</button>`;
+    el.querySelector('button').addEventListener('click',()=>{select('t'+f.tower);el.remove();});
+    toastsEl.appendChild(el);setTimeout(()=>el.remove(),12000);});
+}
+
+// ================= PANEL =================
+const panel=document.getElementById('panel'),clockEl=document.getElementById('clock');
+const STEP=10,PAST=1440,FUT=2880;
+function series(e){const past=[],fut=[];for(let k=0;k<=PAST/STEP;k++){const t=S.t-PAST+k*STEP;past.push({x:t-S.t,m:entAt(e,t,t)});}for(let k=1;k<=FUT/STEP;k++){const t=S.t+k*STEP;fut.push({x:k*STEP,m:entAt(e,t,S.t)});}return{past,fut};}
+function transitions(e){
+  const cur=entAt(e,S.t,S.t),lv0=LV_RANK[cur.level];
+  for(let k=1;k<=FUT/STEP;k++){const t=S.t+k*STEP,m=entAt(e,t,S.t);if(LV_RANK[m.level]>lv0)return{kind:'worse',lv:m.level,t,in:k*STEP,m};}
+  if(lv0>0)for(let k=1;k<=FUT/STEP;k++){const t=S.t+k*STEP,m=entAt(e,t,S.t);if(LV_RANK[m.level]<lv0)return{kind:'better',lv:m.level,t,in:k*STEP,m};}
+  return null;
+}
+function maxRisk48(e){let mx=0,at=S.t;for(let k=0;k<=FUT/STEP;k++){const t=S.t+k*STEP,m=entAt(e,t,S.t);if(m.risk>mx){mx=m.risk;at=t;}}return{mx,at};}
+function kpiHTML(list){return list.map(([v,unit,label,dec])=>{const n=typeof v==='string'?v:dec?v.toFixed(dec).replace('.',','):nf(v);return`<div class="kpi"><div class="n">${n}${unit?`<small>${unit}</small>`:''}</div><div class="l">${label}</div></div>`;}).join('');}
+
+function chartSVG(e){
+  const W=336,H=160,pl=30,pr=8,pt=8,pb=22;const{past,fut}=series(e);const isT=e.kind==='tower';
+  const val=q=>entValue(e,q.m);
+  let y0=0,y1=100,warn=40,crit=70;
+  if(!isT){warn=80;crit=95;y1=Math.max(110,...past.concat(fut).map(val))*1.02;}
+  const sx=x=>pl+(x+PAST)/(PAST+FUT)*(W-pl-pr),sy=y=>pt+(1-(y-y0)/(y1-y0))*(H-pt-pb);
+  const line=pts=>pts.map((q,i)=>(i?'L':'M')+sx(q.x).toFixed(1)+','+sy(val(q)).toFixed(1)).join('');
+  const band=(a,b,cls)=>`<rect class="${cls}" x="${pl}" y="${sy(b).toFixed(1)}" width="${W-pl-pr}" height="${(sy(a)-sy(b)).toFixed(1)}"/>`;
+  let rain='';
+  if(isT){const all=past.concat(fut);const hR=(H-pt-pb)*0.28;rain=`<path class="c-rain" d="M${sx(all[0].x)},${H-pb} `+all.map(q=>`L${sx(q.x).toFixed(1)},${(H-pb-q.m.rain*hR).toFixed(1)}`).join(' ')+` L${sx(all[all.length-1].x)},${H-pb} Z"/>`;}
+  const hp=horizon>0?(()=>{const q=fut[Math.min(fut.length-1,Math.round(horizon/STEP)-1)];return q?`<circle class="c-pt" cx="${sx(q.x).toFixed(1)}" cy="${sy(val(q)).toFixed(1)}" r="4.5"/>`:'';})():'';
+  return`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Últimas 24 horas y predicción a 48 horas">
+${band(warn,crit,'c-warn')}${band(crit,y1,'c-crit')}${rain}
+<line class="c-now" x1="${sx(0)}" x2="${sx(0)}" y1="${pt}" y2="${H-pb}"/>
+<path class="c-past" d="${line(past)}"/><path class="c-fut" d="${line([past[past.length-1]].concat(fut))}"/>${hp}
+<text class="c-ax" x="${pl-5}" y="${sy(warn)+4}" text-anchor="end">${warn}</text><text class="c-ax" x="${pl-5}" y="${sy(crit)+4}" text-anchor="end">${crit}</text>
+<text class="c-ax" x="${sx(-PAST)}" y="${H-6}">−24 h</text><text class="c-ax" x="${sx(0)}" y="${H-6}" text-anchor="middle">Ahora</text>
+<text class="c-ax" x="${sx(1440)}" y="${H-6}" text-anchor="middle">+24 h</text><text class="c-ax" x="${sx(FUT)}" y="${H-6}" text-anchor="end">+48 h</text></svg>`;
+}
+
+// Estado de cada hallazgo, del dron a la orden de trabajo
+function fState(f){
+  if(detectedAt(f)>S.t)return null;
+  if(S.discarded[f.id])return{key:'dis',chip:'Descartado',cls:'dis'};
+  const o=otOf(S,f.id);
+  if(!o)return{key:'new',chip:'Sin orden',cls:'new'};
+  if(S.t<o.arrive)return{key:'trav',chip:`${o.id}, en camino`,cls:'ot',o};
+  if(S.t<o.done)return{key:'work',chip:`${o.id}, trabajando`,cls:'ot',o};
+  return{key:'done',chip:'Resuelto',cls:'done',o};
+}
+function stepsHTML(f,st){
+  const o=st.o,det=fmtT(f.known?KNOWN_AT:detectedAt(f));
+  const items=[['Detectado por el modelo de visión',det,true]];
+  items.push(['Orden de trabajo creada',o?fmtT(o.created):'',!!o]);
+  items.push([`${o?o.crew:'Cuadrilla'} en camino`,o?`llega ${fmtT(o.arrive)}`:'',o&&S.t>=o.arrive,o&&S.t<o.arrive]);
+  items.push([f.type==='nest'?'Retiro del nido':'Recambio de la cadena',o?`termina ${fmtT(o.done)}`:'',o&&S.t>=o.done,o&&S.t>=o.arrive&&S.t<o.done]);
+  items.push(['Resuelto y verificado con foto',o&&S.t>=o.done?fmtT(o.done):'',o&&S.t>=o.done]);
+  return`<ol class="steps">${items.map(([t,time,done,cur])=>`<li class="${done?'done':cur?'cur':''}">${t}${time?`<time>${time}</time>`:''}</li>`).join('')}</ol>`;
+}
+function priorityText(f){
+  const e=ENT_BY['t'+f.tower];const r=maxRisk48(e);
+  if(r.mx>=70)return`<p class="prio"><b>Prioridad alta.</b> La predicción indica riesgo ${nf(r.mx)} ${atT(r.at)}${entAt(e,r.at,S.t).rain>0.35?', con lluvia sobre la torre':''}.</p>`;
+  if(r.mx>=40)return`<p class="prio"><b>Prioridad media.</b> Riesgo máximo previsto de ${nf(r.mx)} en las próximas 48 horas.</p>`;
+  return`<p class="prio"><b>Prioridad baja.</b> Sin riesgo relevante previsto en las próximas 48 horas.</p>`;
+}
+
+function photoSVG(f,after){
+  const W=320,H=196,id='p'+f.id+(after?'a':'');
+  const phx=f.phase?{R:72,S:160,T:248}[f.phase]:160;
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Foto de inspección${after?' de verificación':''}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9CC3DE"/><stop offset="1" stop-color="#DCE9F1"/></linearGradient></defs>
+<rect width="${W}" height="${H}" fill="url(#${id})"/>
+<g stroke="#4B555D" stroke-width="2.4" fill="none"><path d="M8 62H312M8 76H312"/>${Array.from({length:16},(_,k)=>`<path d="M${8+k*19} 62L${27+k*19} 76M${8+k*19} 76L${27+k*19} 62"/>`).join('')}
+<path d="M138 76L120 196M182 76L200 196M128 140H192M138 76L192 140M182 76L128 140"/><path d="M236 62V22M226 62L236 22L246 62"/></g>`;
+  for(const x of[72,160,248]){const broken=!after&&f.type==='insulator'&&f.severity==='broken'&&x===phx;for(let k=0;k<7;k++){if(broken&&k===4)continue;const cy=86+k*8;s+=`<ellipse cx="${x}" cy="${cy}" rx="11" ry="3.4" fill="${!after&&f.type==='insulator'&&x===phx?'#8FA9B8':'#A9C3D1'}" stroke="#5E7380" stroke-width="1"/>`;}
+    if(!after&&f.type==='insulator'&&f.severity==='chip'&&x===phx)s+=`<path d="M64 110l6 2-4 3 7 2" stroke="#3A2A20" stroke-width="1.6" fill="none"/>`;
+    s+=`<path d="M${x-80} 154Q${x} 146 ${x+80} 154" stroke="#2F363C" stroke-width="2.2" fill="none"/><path d="M${x} 141V150" stroke="#2F363C" stroke-width="2"/>`;}
+  let bb=null;
+  if(!after&&f.type==='nest'){
+    const[cx,cy]=f.fp?[160,64]:f.near?[146,56]:[236,22];
+    if(f.fp)s+=`<path d="M${cx-14} ${cy}q6-10 14-6q10-6 14 4q-6 10-14 6q-10 4-14-4z" fill="#EDEAE2" stroke="#B9B4A8"/>`;
+    else s+=`<ellipse cx="${cx}" cy="${cy}" rx="17" ry="7" fill="#7A5A3A"/>`+Array.from({length:9},(_,k)=>`<path d="M${cx-18+k*4} ${cy-2+(k%3)}l${8-(k%4)*3} ${-5+(k%2)*8}" stroke="#4E3824" stroke-width="1.5"/>`).join('');
+    bb=[cx-24,cy-14,48,26];
+  }
+  if(!after&&f.type==='insulator')bb=[phx-20,80,40,64];
+  if(bb){const col=f.near||f.severity==='broken'?'#E0443A':f.fp?'#E8B400':'#F2A100';const lab=`${detLabel(f)} ${Math.round(f.conf*100)}%`,lw=lab.length*6.4+12;
+    s+=`<rect x="${bb[0]}" y="${bb[1]}" width="${bb[2]}" height="${bb[3]}" fill="none" stroke="${col}" stroke-width="2.4"/><rect x="${bb[0]}" y="${bb[1]-17}" width="${lw}" height="17" fill="${col}"/><text x="${bb[0]+6}" y="${bb[1]-5}" fill="#fff" font-family="Barlow,sans-serif" font-size="11.5" font-weight="600">${lab}</text>`;}
+  const meta=after?`Cuadrilla, ${fmtT(otOf(S,f.id).done)}`:`Dron D-2, ${fmtT(f.known?KNOWN_AT-7:detectedAt(f)-MISSION.process)}`;
+  s+=`<rect x="0" y="${H-22}" width="${W}" height="22" fill="rgba(20,26,30,.55)"/><text x="8" y="${H-7}" fill="#fff" font-family="Barlow,sans-serif" font-size="12">${meta}</text></svg>`;
+  return s;
+}
+
+function overviewHTML(){return`
+<h2>Vista general</h2>
+<p class="sub">Tramo de 14 torres entre ET Ceibal y ET Laguna Brava.</p>
+<h3>Inspección con drones</h3>
+<p class="mission" data-mission></p>
+<div class="funnel" data-funnel></div>
+<h3>Hallazgos</h3>
+<ul class="inbox" data-inbox></ul>
+<h3>Próximas 48 horas</h3>
+<ul class="alerts" data-alerts></ul>
+<h3>Estado eléctrico de la línea</h3>
+<div class="kpis" data-kpis></div>
+<div class="chart" style="margin-top:14px"><div class="chart-cap">Carga sobre el límite térmico (%)</div><div data-chart></div></div>
+<h3>Probá un escenario</h3>
+<div class="scen" data-scen></div>`;}
+function towerHTML(e){return`
+<button class="back" data-back>Vista general</button>
+<h2>${e.name}</h2>
+<p class="sub">${e.desc}</p>
+<div class="health" data-health></div>
+<div data-findings></div>
+<div class="chart"><div class="chart-cap">Índice de riesgo de falla (0 a 100) y lluvia prevista</div><div data-chart></div></div>
+<p class="insight" data-insight></p>
+<div class="kpis" data-kpis></div>`;}
+function etHTML(e){return`
+<button class="back" data-back>Vista general</button>
+<h2>${e.name}</h2>
+<p class="sub">${e.desc}</p>
+<div class="health" data-health></div>
+<div class="kpis" data-kpis></div>
+<div class="chart" style="margin-top:14px"><div class="chart-cap">Carga sobre el límite térmico (%)</div><div data-chart></div></div>
+<p class="insight" data-insight></p>`;}
+let blockKeys={};
+function buildPanel(){const e=selected&&ENT_BY[selected];panel.innerHTML=!e?overviewHTML():e.kind==='tower'?towerHTML(e):etHTML(e);panel.scrollTop=0;blockKeys={};updatePanel();}
+function setBlock(sel,key,html){const el=panel.querySelector(sel);if(!el)return;if(blockKeys[sel]!==key){blockKeys[sel]=key;el.innerHTML=html;}}
+
+function updatePanel(){
+  const tD=S.t+horizon,pred=horizon>0;
+  ENT.forEach(e=>{levels[e.id]=entAt(e,tD,S.t).level;});
+  panel.classList.toggle('pred',pred);
+  for(const id in labels){const L=labels[id],e=L.e,m=entAt(e,tD,S.t);L.dot.className='dot '+levels[id];L.v.textContent=e.kind==='tower'?(m.fs.length?`riesgo ${nf(m.risk)}`:''):`${nf(m.L.mw)} MW`;}
+  const e=selected&&ENT_BY[selected];
+  if(!e)updateOverview(tD,pred);else if(e.kind==='tower')updateTower(e,tD,pred);else updateET(e,tD,pred);
+}
+function updateOverview(tD,pred){
+  const ms=missionStatus(S.t),pl=pipeline(S.t);
+  const mt={pre:`Vuelo programado a las ${hhmm(MISSION.start)} sobre ${towerName(MISSION.towers[0])} a ${towerName(MISSION.towers[MISSION.towers.length-1])}.`,
+    transit:`Dron D-2 volando hacia ${towerName(ms.tower)} (${(ms.j||0)+1} de ${MISSION.towers.length}).`,
+    inspect:`Dron D-2 fotografiando ${towerName(ms.tower)} (${(ms.j||0)+1} de ${MISSION.towers.length}).`,
+    return:'Dron D-2 volviendo a la base.',done:`Vuelo terminado: ${MISSION.towers.length} torres inspeccionadas.`}[ms.phase];
+  panel.querySelector('[data-mission]').textContent=mt;
+  const newF=FINDINGS.filter(f=>!f.known&&detectedAt(f)<=S.t).length;
+  const row=(l,n,tot)=>`<div class="frow"><span>${l}</span><span class="fbar"><i style="width:${(100*n/tot).toFixed(1)}%"></i></span><span class="fn">${n}</span></div>`;
+  panel.querySelector('[data-funnel]').innerHTML=row('Fotos tomadas',pl.cap,pl.total)+row('Subidas al servidor',pl.up,pl.total)+row('Analizadas por el modelo',pl.proc,pl.total)+`<div class="frow"><span>Hallazgos nuevos</span><span></span><span class="fn">${newF}</span></div>`;
+  // Bandeja de hallazgos
+  const fl=FINDINGS.map(f=>({f,st:fState(f)})).filter(x=>x.st);
+  const ord={new:0,trav:1,work:1,done:2,dis:3};
+  fl.sort((a,b)=>ord[a.st.key]-ord[b.st.key]||(levels['t'+b.f.tower]==='crit')-(levels['t'+a.f.tower]==='crit'));
+  const ik=fl.map(x=>x.f.id+x.st.key+(levels['t'+x.f.tower])).join('|');
+  setBlock('[data-inbox]',ik,fl.length?fl.map(({f,st})=>`<li><button data-go="t${f.tower}"><span class="dot ${st.key==='done'||st.key==='dis'?'none':levels['t'+f.tower]}"></span><span><span class="t">${towerName(f.tower)}</span> ${findingTitle(f)}<span class="d">${Math.round(f.conf*100)}% de confianza${f.known?', detectado en el vuelo anterior':''}</span></span><span class="chip ${st.cls}">${st.chip}</span></button></li>`).join(''):'<li class="empty">Sin hallazgos.</li>');
+  // Próximas 48 horas
+  const items=ENT.filter(e=>e.kind==='tower'||e.id==='etA').map(e=>({e,tr:transitions(e)})).filter(x=>x.tr&&x.tr.kind==='worse').sort((a,b)=>a.tr.in-b.tr.in);
+  panel.querySelector('[data-alerts]').innerHTML=items.length?items.map(({e,tr})=>{const who=e.kind==='et'?'La línea':e.short;const why=e.kind==='tower'?(tr.m.rain>0.35?' por lluvia':''):` (conductor a ${nf(tr.m.L.tc)} °C)`;return`<li><span class="dot ${tr.lv}"></span><span><b>${who}</b> pasaría a ${LV_TXT[tr.lv].toLowerCase()}${why} ${atT(tr.t)}</span><span class="when">en ${fmtDur(tr.in)}</span></li>`;}).join(''):'<li><span class="empty">Sin alertas previstas en las próximas 48 horas.</span></li>';
+  const L=lineAt(S,tD);
+  panel.querySelector('[data-kpis]').innerHTML=kpiHTML([[L.mw,'MW','Potencia transmitida'],[L.pct,'%','Carga sobre el límite térmico'],[L.tc,'°C','Temperatura del conductor'],[L.kv,'kV','Tensión']]);
+  panel.querySelector('[data-chart]').innerHTML=chartSVG(ENT_BY.etA);
+  // Escenarios
+  const heat=S.heat&&S.t<S.heat.to,early=S.front.early;
+  setBlock('[data-scen]',`${heat}|${early}`,
+    (heat?`<div class="inc-on"><div><b>Ola de calor</b><span>Activa hasta ${untilT(S.heat.to)}</span></div><button class="ghost" data-scen-off="heat">Desactivar</button></div>`:`<button class="inc-btn" data-scen-on="heat">Simular una ola de calor de 36 horas</button>`)+
+    (early?`<div class="inc-on"><div><b>Tormenta adelantada</b><span>Llega al extremo este ${atT(S.front.t)}</span></div><button class="ghost" data-scen-off="storm">Volver al pronóstico original</button></div>`:`<button class="inc-btn" data-scen-on="storm">Adelantar la tormenta prevista</button>`)+
+    `<button class="ghost" data-reset style="align-self:flex-start;margin-top:4px">Reiniciar la demo</button>`);
+}
+function updateTower(e,tD,pred){
+  const m=entAt(e,tD,S.t),lv=m.level;
+  panel.querySelector('[data-health]').innerHTML=`<span class="badge ${lv}">${pred&&lv!=='none'?'Previsto: ':''}${LV_TXT[lv]}</span><span>${reasonText(e,m)}</span>`;
+  // Hallazgos de la torre, con su flujo hasta la orden de trabajo
+  const fs=FINDINGS.filter(f=>f.tower===e.i).map(f=>({f,st:fState(f)})).filter(x=>x.st);
+  const j=MISSION.towers.indexOf(e.i);
+  let fk=fs.map(x=>x.f.id+x.st.key).join('|')+'|'+(j>=0?(S.t<inspWindow(j)[1]?'pend':'insp'):'');
+  if(fs.some(x=>x.st.key==='new'))fk+='|'+Math.round(maxRisk48(e).mx/5);
+  let html='';
+  const main=fs.find(x=>x.st.key!=='dis');
+  if(main){const after=main.st.key==='done';
+    html+=`<h3 style="margin-top:4px">${after?'Foto de verificación':'Foto del hallazgo'}</h3><figure class="photo">${photoSVG(main.f,after)}<figcaption>${after?'Tomada por la cuadrilla al cerrar la orden. El modelo no detecta el defecto.':'Recuadro y confianza generados por el modelo de visión artificial.'}</figcaption></figure>`;}
+  if(fs.length){html+='<h3>Hallazgos</h3>'+fs.map(({f,st})=>{
+    let body=`<div class="fcard ${st.key==='done'?'resolved':st.key==='dis'?'discarded':''}"><div class="fhead"><b>${findingTitle(f)}</b><span class="conf">${Math.round(f.conf*100)}%</span></div><p>${f.desc}</p>`;
+    if(st.key==='new')body+=priorityText(f)+`<div class="factions"><button class="primary" data-ot="${f.id}">Crear orden de trabajo</button><button class="ghost" data-dis="${f.id}">Descartar</button></div>`;
+    else if(st.key==='dis')body+=`<div class="factions"><span class="chip dis">Descartado como falso positivo</span><button class="ghost" data-undis="${f.id}">Deshacer</button></div>`;
+    else body+=`<div class="chip ${st.cls}" style="display:inline-block">${st.o.id}, ${st.o.crew}</div>`+stepsHTML(f,st);
+    return body+'</div>';}).join('');}
+  else if(j>=0&&S.t<inspWindow(j)[1])html+=`<p class="insight" style="margin-top:0">Inspección con dron programada para hoy a las ${hhmm(inspWindow(j)[0])}.</p>`;
+  else html+=`<p class="insight" style="margin-top:0">Sin hallazgos en la última inspección (${lastInspection(e.i,S.t)}).</p>`;
+  setBlock('[data-findings]',fk,html);
+  panel.querySelector('[data-chart]').innerHTML=chartSVG(e);
+  const tr=transitions(e),cur=entAt(e,S.t,S.t);let ins;
+  if(tr&&tr.kind==='worse')ins=`Si nada cambia, pasa a ${LV_TXT[tr.lv].toLowerCase()} ${atT(tr.t)}, dentro de ${fmtDur(tr.in)}${tr.m.rain>0.35?', cuando llegue la lluvia':''}.`;
+  else if(tr&&tr.kind==='better')ins=`La predicción indica que se normaliza ${atT(tr.t)}, dentro de ${fmtDur(tr.in)}.`;
+  else if(cur.level==='warn'||cur.level==='crit')ins=`Sigue en ${LV_TXT[cur.level].toLowerCase()} durante las próximas 48 horas.`;
+  else ins='Sin riesgo relevante previsto en las próximas 48 horas.';
+  panel.querySelector('[data-insight]').textContent=ins;
+  let rmax=0;for(let k=0;k<=FUT/STEP;k++)rmax=Math.max(rmax,rainAt(S,S.t+k*STEP,e.x));
+  panel.querySelector('[data-kpis]').innerHTML=kpiHTML([[m.risk,'','Índice de riesgo'],[maxRisk48(e).mx,'','Riesgo máximo en 48 h'],[rmax*14,'mm/h','Lluvia máxima prevista',1],[lastInspection(e.i,S.t),'','Última inspección']]);
+}
+function updateET(e,tD,pred){
+  const m=entAt(e,tD,S.t),L=m.L;
+  panel.querySelector('[data-health]').innerHTML=`<span class="badge ${m.level}">${pred?'Previsto: ':''}${LV_TXT[m.level]}</span><span>${reasonText(e,m)}</span>`;
+  panel.querySelector('[data-kpis]').innerHTML=kpiHTML([[L.kv*(e.id==='etB'?0.985:1),'kV','Tensión de barra'],[L.mw*(e.id==='etB'?0.985:1),'MW','Potencia'],[L.amps,'A','Corriente por fase'],[L.tc,'°C','Temperatura del conductor']]);
+  panel.querySelector('[data-chart]').innerHTML=chartSVG(e);
+  const tr=transitions(e);
+  panel.querySelector('[data-insight]').textContent=tr&&tr.kind==='worse'?`Si nada cambia, la línea pasa a ${LV_TXT[tr.lv].toLowerCase()} ${atT(tr.t)}, con el conductor a ${nf(tr.m.L.tc)} °C.`:'Carga y temperatura dentro de los límites durante las próximas 48 horas.';
+}
+
+panel.addEventListener('click',ev=>{
+  const q=s=>ev.target.closest(s);let b;
+  if(b=q('[data-go]'))select(b.dataset.go);
+  else if(q('[data-back]'))toOverview();
+  else if(b=q('[data-ot]')){const f=FIND_BY[b.dataset.ot];if(!otOf(S,f.id))createOT(S,f,S.t);refresh();}
+  else if(b=q('[data-dis]')){S.discarded[b.dataset.dis]=true;refresh();}
+  else if(b=q('[data-undis]')){delete S.discarded[b.dataset.undis];refresh();}
+  else if(b=q('[data-scen-on]')){if(b.dataset.scenOn==='heat')S.heat={from:S.t,to:S.t+2160};else S.front={t:S.t+150,I:1,early:true};refresh();}
+  else if(b=q('[data-scen-off]')){if(b.dataset.scenOff==='heat')S.heat=null;else S.front={t:T0+600,I:0.85,early:false};refresh();}
+  else if(q('[data-reset]')){Object.assign(S,initS());notified=new Set(FINDINGS.filter(f=>f.known).map(f=>f.id));toastsEl.innerHTML='';lastDamageKey='x';hEl.value=0;setHorizon(0);toOverview();clockEl.textContent=hhmm(S.t);}
+});
+function refresh(){blockKeys={};updatePanel();}
+
+function select(id){selected=id;const e=ENT_BY[id];flyTo(e.bounds,e.ymax);document.getElementById('overviewBtn').hidden=false;buildPanel();}
+function toOverview(){selected=null;flyTo(OVERVIEW,10);document.getElementById('overviewBtn').hidden=true;buildPanel();}
+document.getElementById('overviewBtn').addEventListener('click',toOverview);
+document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&selected)toOverview();});
+
+document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>{speed=+b.dataset.speed;document.querySelectorAll('[data-speed]').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',x===b);});}));
+const pauseBtn=document.getElementById('pause');
+pauseBtn.addEventListener('click',()=>{paused=!paused;pauseBtn.textContent=paused?'Seguir':'Pausar';});
+
+const hEl=document.getElementById('horizon'),banner=document.getElementById('banner'),tlTitle=document.getElementById('tlTitle'),tlSub=document.getElementById('tlSub'),tlNow=document.getElementById('tlNow');
+function updateHorizonText(){const t=S.t+horizon;const pt=dayWord(t,S.t)?`${dayWord(t,S.t)}a las ${hhmm(t)}`:`las ${hhmm(t)}`;banner.textContent=`Estás viendo la línea prevista para ${pt}`;tlTitle.textContent=`Predicción para ${pt}`;tlSub.textContent=`Dentro de ${fmtDur(horizon)}, si nada cambia`;}
+function setHorizon(v){horizon=v;const pred=v>0;document.body.classList.toggle('predicting',pred);banner.hidden=!pred;tlNow.disabled=!pred;
+  if(pred)updateHorizonText();else{tlTitle.textContent='Ahora';tlSub.textContent='Estado en vivo de la línea';}
+  updatePanel();lastPanel=performance.now();}
+hEl.addEventListener('input',()=>setHorizon(+hEl.value));
+tlNow.addEventListener('click',()=>{hEl.value=0;setHorizon(0);});
+
+clockEl.textContent=hhmm(S.t);
+buildPanel();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
