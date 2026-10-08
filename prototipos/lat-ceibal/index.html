@@ -58,6 +58,9 @@ button{font:inherit;color:inherit}
 .zlabel{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:6px;padding:4px 10px 4px 8px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 3px rgba(15,25,35,.14);appearance:none}
 .zlabel .v{font:500 13px 'Barlow Semi Condensed',sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
 .zlabel.compact .v{display:none}
+.zlabel.pin:not(:hover):not(:focus-visible){padding:7px;gap:0}
+.zlabel.pin:not(:hover):not(:focus-visible)>span:not(.dot){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.zlabel.pin:hover,.zlabel.pin:focus-visible{z-index:2}
 .zlabel.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
 .zlabel.drone{background:var(--ink);color:var(--surface);border-color:var(--ink);cursor:default;font-weight:500}
 .predicting .zlabel .v{color:var(--future)}
@@ -128,7 +131,7 @@ aside .hint{margin:-2px 0 10px;color:var(--muted);font-size:14px}
 .alerts li{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:baseline;padding:9px 2px;border-bottom:1px solid var(--line);font-size:14px}
 .alerts .dot{transform:translateY(1px)}
 .alerts .when{font:500 14px 'Barlow Semi Condensed',sans-serif;color:var(--future);white-space:nowrap}
-.alerts .empty{display:block;color:var(--muted)}
+.alerts .empty{display:block;grid-column:1/-1;color:var(--muted)}
 
 .health{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--surface-2);margin-bottom:16px}
 .badge{flex:none;font-weight:600;font-size:13px;padding:3px 9px;border-radius:5px;color:#fff;background:var(--ok)}
@@ -379,7 +382,7 @@ function inst(geo,mat,pos,shadow=true){const im=new THREE.InstancedMesh(geo,mat,
 let seed=11;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
 
 // Terreno: campo, franja de servidumbre, arroyo, ruta, camino de servicio
-const ground=add(scene,new THREE.PlaneGeometry(600,320),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
+const ground=add(scene,new THREE.PlaneGeometry(1600,1600),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
 const fieldPos=[],FIELD_TINT=[0xB8C77A,0xD9C98A,0x9FB58A,0xC9B98E,0xA9BF7E];
 for(let x=-150;x<=150;x+=17)for(const band of[[-70,-9],[9,70]]){for(let z=band[0];z<band[1]-6;z+=0){const d=8+rnd()*10,zz=Math.min(z+d,band[1]);if(Math.abs(x)>5&&Math.abs(x+40)>4&&!(Math.abs(Math.abs(x)-80)<12&&zz>-14&&z<14)&&rnd()<0.8)fieldPos.push([x+rnd()*1.5,0.012,(z+zz)/2,0,FIELD_TINT[Math.floor(rnd()*5)],15.2,1,zz-z-1]);z=zz+0.001;if(zz>=band[1])break;}}
 const fields=inst(boxGeo(1,0.02,1),new THREE.MeshLambertMaterial(),fieldPos,false);
@@ -568,14 +571,32 @@ ENT.forEach(e=>{const b=document.createElement('button');b.className='zlabel';b.
   labels[e.id]={el:b,dot:b.querySelector('.dot'),v:b.querySelector('.v'),anchor:new THREE.Vector3(e.x,e.kind==='tower'?ya(e.i)+2.6:4.5,e.kind==='tower'?-1:-6),e};});
 const droneLabel=document.createElement('div');droneLabel.className='zlabel drone';droneLabel.textContent='Dron D-2';labelsEl.appendChild(droneLabel);
 const tmpV=new THREE.Vector3();
-function place(el,v){const w=stageEl.clientWidth,h=stageEl.clientHeight;tmpV.copy(v).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-80||x>w+80||y<-20||y>h+40;el.style.display=off?'none':'flex';if(!off)el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%)`;}
+// Ubica las etiquetas sin que se pisen ni se salgan del borde. Van por prioridad;
+// si una choca con otra ya ubicada, queda solo el punto de salud (sigue siendo clickeable).
+// rank: 0 seleccionada, 1 crítica, 2 atención, 3 normal.
+function layoutLabels(items,w,h){
+  items.forEach(it=>{it.el.classList.remove('pin');it.el.style.display='flex';});
+  items.forEach(it=>{it.w=it.el.offsetWidth;it.h=it.el.offsetHeight;});
+  items.sort((a,b)=>a.rank-b.rank);
+  const placed=[],hits=r=>placed.some(p=>r.l<p.r+4&&r.r>p.l-4&&r.t<p.b+2&&r.b>p.t-2);
+  const box=(it,cw,ch)=>{const x=Math.min(w-cw/2-6,Math.max(cw/2+6,it.x));return{x,l:x-cw/2,r:x+cw/2,t:it.y-ch,b:it.y};};
+  for(const it of items){
+    let r=box(it,it.w,it.h);
+    if(it.canPin&&hits(r)){it.el.classList.add('pin');r=box(it,it.el.offsetWidth,it.el.offsetHeight);}
+    placed.push(r);it.el.style.transform=`translate(${r.x.toFixed(1)}px,${it.y.toFixed(1)}px) translate(-50%,-100%)`;
+  }
+}
+function place(items,el,v,rank,canPin){const w=stageEl.clientWidth,h=stageEl.clientHeight;tmpV.copy(v).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-80||x>w+80||y<-20||y>h+40;if(off)el.style.display='none';else items.push({el,x,y,rank,canPin});}
 function positionLabels(){
-  const close=view.H<24;
+  const close=view.H<24,items=[];
   for(const id in labels){const L=labels[id],e=L.e;const lv=levels[id]||'none';
     const show=e.kind==='et'||selected===id||close||lv==='warn'||lv==='crit';
     if(!show){L.el.style.display='none';continue;}
-    place(L.el,L.anchor);L.el.classList.toggle('compact',view.H>45);L.el.classList.toggle('sel',selected===id);}
-  if(droneVis.flying){place(droneLabel,tmpDrone.set(drone.position.x,drone.position.y+1.1,drone.position.z));}else droneLabel.style.display='none';
+    L.el.classList.toggle('compact',view.H>45);L.el.classList.toggle('sel',selected===id);
+    place(items,L.el,L.anchor,selected===id?0:3-LV_RANK[lv],true);}
+  // El dron no tiene punto de salud: nunca se reduce, va justo después de la selección.
+  if(droneVis.flying){place(items,droneLabel,tmpDrone.set(drone.position.x,drone.position.y+1.1,drone.position.z),0.5,false);}else droneLabel.style.display='none';
+  layoutLabels(items,stageEl.clientWidth,stageEl.clientHeight);
 }
 const tmpDrone=new THREE.Vector3();
 

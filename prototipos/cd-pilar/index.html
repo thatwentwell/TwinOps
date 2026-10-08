@@ -56,6 +56,9 @@ button{font:inherit;color:inherit}
 .zlabel{position:absolute;left:0;top:0;pointer-events:auto;display:flex;align-items:center;gap:7px;padding:5px 11px 5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13.5px;white-space:nowrap;cursor:pointer;box-shadow:0 1px 3px rgba(15,25,35,.14);appearance:none}
 .zlabel .v{font:500 13.5px 'Barlow Semi Condensed',sans-serif;color:var(--muted);font-variant-numeric:tabular-nums}
 .zlabel.compact .v{display:none}
+.zlabel.pin:not(:hover):not(:focus-visible){padding:7px;gap:0}
+.zlabel.pin:not(:hover):not(:focus-visible)>span:not(.dot){position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.zlabel.pin:hover,.zlabel.pin:focus-visible{z-index:2}
 .zlabel.sel{border-color:var(--ink);box-shadow:0 0 0 1.5px var(--ink)}
 .predicting .zlabel .v{color:var(--future)}
 .dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--ok)}
@@ -371,7 +374,7 @@ let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 
 // Suelo, playones y calles
-const ground=add(scene,new THREE.PlaneGeometry(520,280),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
+const ground=add(scene,new THREE.PlaneGeometry(1600,1600),M.ground,0,0,0,false);ground.rotation.x=-Math.PI/2;
 boxOn(scene,14,0.04,40,M.apron,-51,0,6,false);
 boxOn(scene,74,0.04,5,M.road,-95,0,21,false);
 boxOn(scene,15,0.04,39,M.apron,37.5,0,-6.5,false);
@@ -546,7 +549,27 @@ const labelsEl=document.getElementById('labels');
 const labels={};
 STAGES.forEach(st=>{const b=document.createElement('button');b.className='zlabel';b.innerHTML=`<span class="dot"></span><span>${st.name}</span><span class="v"></span>`;b.addEventListener('click',()=>select(st.id));labelsEl.appendChild(b);labels[st.id]={el:b,dot:b.querySelector('.dot'),v:b.querySelector('.v'),anchor:new THREE.Vector3(st.x,st.id==='lastmile'?7:5,st.z)};});
 const tmpV=new THREE.Vector3();
-function positionLabels(){const w=stageEl.clientWidth,h=stageEl.clientHeight;const compact=view.H>32;for(const id in labels){const L=labels[id];tmpV.copy(L.anchor).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-60||x>w+60||y<-20||y>h+40;L.el.style.display=off?'none':'flex';if(!off)L.el.style.transform=`translate(${x.toFixed(1)}px,${y.toFixed(1)}px) translate(-50%,-100%)`;L.el.classList.toggle('compact',compact);L.el.classList.toggle('sel',selected===id);}}
+// Ubica las etiquetas sin que se pisen ni se salgan del borde. Van por prioridad;
+// si una choca con otra ya ubicada, queda solo el punto de salud (sigue siendo clickeable).
+// rank: 0 seleccionada, 1 crítica, 2 atención, 3 normal.
+function layoutLabels(items,w,h){
+  items.forEach(it=>{it.el.classList.remove('pin');it.el.style.display='flex';});
+  items.forEach(it=>{it.w=it.el.offsetWidth;it.h=it.el.offsetHeight;});
+  items.sort((a,b)=>a.rank-b.rank);
+  const placed=[],hits=r=>placed.some(p=>r.l<p.r+4&&r.r>p.l-4&&r.t<p.b+2&&r.b>p.t-2);
+  const box=(it,cw,ch)=>{const x=Math.min(w-cw/2-6,Math.max(cw/2+6,it.x));return{x,l:x-cw/2,r:x+cw/2,t:it.y-ch,b:it.y};};
+  for(const it of items){
+    let r=box(it,it.w,it.h);
+    if(it.canPin&&hits(r)){it.el.classList.add('pin');r=box(it,it.el.offsetWidth,it.el.offsetHeight);}
+    placed.push(r);it.el.style.transform=`translate(${r.x.toFixed(1)}px,${it.y.toFixed(1)}px) translate(-50%,-100%)`;
+  }
+}
+function positionLabels(){const w=stageEl.clientWidth,h=stageEl.clientHeight;const compact=view.H>32;const items=[];
+  for(const id in labels){const L=labels[id];tmpV.copy(L.anchor).project(cam);const x=(tmpV.x+1)/2*w,y=(1-tmpV.y)/2*h;const off=x<-60||x>w+60||y<-20||y>h+40;
+    L.el.classList.toggle('compact',compact);L.el.classList.toggle('sel',selected===id);
+    if(off){L.el.style.display='none';continue;}
+    items.push({el:L.el,x,y,canPin:true,rank:selected===id?0:3-LV_RANK[levels[id]||'ok']});}
+  layoutLabels(items,w,h);}
 
 // ================= LOOP =================
 let speed=1,paused=false,horizon=0,selected=null,acc=0,last=performance.now(),animT=0,panelDirty=true,lastPanel=0,incKey='';

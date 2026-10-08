@@ -65,13 +65,17 @@ Fabri es Solutions Architect con mucha experiencia en cloud (AWS principalmente)
 
 - Dos prototipos funcionando en `prototipos/`. Ambos están publicados como artefactos privados de claude.ai.
 - Se verificaron en Node: sintaxis y simulación en los dos; LAT además corrió completo en jsdom con three r128 real y un renderer simulado, recorriendo el flujo de la demo sin errores.
-- **Ninguno se probó todavía en un navegador real.** Es el primer riesgo a descartar.
+- **Se probaron en Chromium headless (2026-10-08)**, en claro y oscuro, desktop (1440×900) y mobile (390×844), con y sin `prefers-reduced-motion`: carga, selección de etapa, línea de tiempo al futuro, incidentes y navegación con teclado. Sin errores de consola. Se corrigió:
+  - Etiquetas superpuestas (CD en mobile) o cortadas en el borde (LAT en mobile). Ahora se ubican por prioridad (seleccionada, crítica, atención, normal); si una choca, queda solo su punto de salud y se expande con hover o foco.
+  - Piso de la escena chico: en pantallas verticales se veía el fondo en las esquinas.
+  - En LAT, "Sin alertas previstas" se partía en una palabra por línea.
+- **Falta medir rendimiento con GPU real:** el headless renderiza por software, así que sus FPS no sirven de referencia.
 - La fase de diseño de la interfaz 2D en Claude Design todavía no se hizo.
-- El repo tiene un workflow de GitHub Pages que publica `prototipos/`.
+- El repo es público y GitHub Pages publica `prototipos/` en https://thatwentwell.github.io/TwinOps/ con cada push a `main` que toque esa carpeta.
 
 ## Próximos pasos
 
-1. **Probar ambos prototipos en un navegador real** (`npx serve prototipos`) y corregir lo visual: superposición de etiquetas, contraste en modo oscuro, legibilidad de líneas finas y rendimiento en notebook.
+1. **Probar ambos prototipos en una notebook con GPU real** (`npx serve prototipos`): rendimiento y legibilidad de las líneas finas de LAT de lejos. Lo visual básico ya se revisó en headless.
 2. **Esperar las decisiones de Claude Design para el panel 2D**, si Fabri las trae. Si no, mantener el sistema visual actual.
 3. **Crear `app/` con Vite + React + TS + R3F.** Separar un núcleo común de las verticales:
    - Núcleo: cámara isométrica y navegación, etiquetas flotantes, línea de tiempo, panel, sistema de salud, banner de predicción.
